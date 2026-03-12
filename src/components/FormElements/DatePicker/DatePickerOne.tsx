@@ -1,5 +1,6 @@
 "use client";
 
+import "flatpickr/dist/flatpickr.min.css";
 import { Calendar } from "@/components/Layouts/sidebar/icons";
 import flatpickr from "flatpickr";
 import { useEffect } from "react";

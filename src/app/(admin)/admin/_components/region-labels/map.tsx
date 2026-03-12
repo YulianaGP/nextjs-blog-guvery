@@ -1,5 +1,6 @@
 "use client";
 
+import "jsvectormap/dist/jsvectormap.css";
 import jsVectorMap from "jsvectormap";
 import { useEffect } from "react";
 

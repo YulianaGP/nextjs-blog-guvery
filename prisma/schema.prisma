@@ -1,0 +1,187 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooler — usado por Prisma Client en runtime
+  directUrl = env("DIRECT_URL")  // conexión directa — usada por Prisma CLI (migrate, studio)
+}
+
+// ─── USUARIO ADMIN ────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // Hash bcrypt — solo para Credentials provider
+  role          Role      @default(EDITOR)
+
+  // Relaciones NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  // Relaciones del blog
+  posts Post[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+// ─── NEXTAUTH — Modelos requeridos por el adapter ─────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── ARTÍCULO ─────────────────────────────────────────────────────────────────
+
+model Post {
+  id      String @id @default(cuid())
+  title   String
+  slug    String @unique
+  excerpt String // Resumen corto para listados y meta description
+  content String @db.Text // HTML generado por el editor (Tiptap)
+
+  coverImage  String? // URL de imagen destacada (Cloudinary / Vercel Blob)
+  ogImage     String? // URL de imagen para OpenGraph/RRSS — puede diferir de coverImage
+  featured    Boolean    @default(false) // Para destacar artículos en el home (HU14)
+  status      PostStatus @default(DRAFT)
+  // NOTA DE ARQUITECTURA: si el blog crece mucho, `views` puede generar locks
+  // por las actualizaciones concurrentes. Alternativa: acumular en Redis y
+  // sincronizar periódicamente en un cron job.
+  views       Int        @default(0) // Para ordenar artículos populares (HU14)
+  readingTime Int? // Minutos estimados de lectura
+
+  // Campos SEO opcionales — pueden diferir del título/excerpt visible
+  metaTitle       String?
+  metaDescription String?
+
+  // Relaciones
+  author     User     @relation(fields: [authorId], references: [id])
+  authorId   String
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+  tags       Tag[]    @relation("PostTags")
+
+  // Timestamps
+  publishedAt DateTime? // Índice incluido: útil para "Últimos artículos" y sitemap
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt // Expuesto en HU19 (fecha de actualización)
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([status])
+  @@index([views])
+  @@index([publishedAt]) // Optimiza queries de "artículos recientes" y sitemap
+  @@index([featured]) // Optimiza queries de artículos destacados en el home
+  @@map("posts")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ─── CATEGORÍA ────────────────────────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String? // Color hex para el badge visual (ej: "#E86C2C")
+  posts       Post[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("categories")
+}
+
+// ─── TAG ──────────────────────────────────────────────────────────────────────
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+  posts Post[] @relation("PostTags")
+
+  @@map("tags")
+}
+
+// ─── SUSCRIPTOR ───────────────────────────────────────────────────────────────
+
+model Subscriber {
+  id    String @id @default(cuid())
+  email String @unique
+  name  String?
+
+  status      SubscriberStatus @default(PENDING)
+  // Token UUID para el link de confirmación de suscripción (double opt-in)
+  // Ejemplo de uso: /newsletter/confirmar?token=<confirmationToken>
+  confirmationToken String?   @unique
+  confirmedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  source    String? // "blog-footer" | "post-inline" | "sidebar"
+
+  @@index([email])
+  @@index([status])
+  @@index([confirmationToken])
+  @@map("subscribers")
+}
+
+enum SubscriberStatus {
+  PENDING // Email ingresado, pendiente de confirmación
+  CONFIRMED // Confirmó su suscripción vía token
+  UNSUBSCRIBED // Se dio de baja
+}
