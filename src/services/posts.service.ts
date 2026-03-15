@@ -125,6 +125,28 @@ export async function getRelatedPosts(
   });
 }
 
+/**
+ * Búsqueda de posts publicados por título o excerpt (case-insensitive).
+ * Usado en la página /buscar y en la API route GET /api/search.
+ */
+export async function searchPosts(query: string, limit = 12): Promise<PostCard[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  return prisma.post.findMany({
+    where: {
+      status: PostStatus.PUBLISHED,
+      OR: [
+        { title:   { contains: q, mode: "insensitive" } },
+        { excerpt: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: postCardSelect,
+    orderBy: { publishedAt: "desc" },
+    take: limit,
+  });
+}
+
 /** Todos los slugs publicados — usado por generateStaticParams. */
 export async function getAllPublishedSlugs() {
   return prisma.post.findMany({
@@ -170,6 +192,29 @@ export const getAdminPosts = unstable_cache(
   ["admin-posts"],
   { revalidate: 60, tags: ["admin-posts"] },
 );
+
+/**
+ * Editor: posts del autor autenticado (todos los estados).
+ * A diferencia de getAdminPosts(), filtra por authorId y no usa caché global.
+ */
+export async function getAuthorPosts(authorId: string) {
+  return prisma.post.findMany({
+    where: { authorId },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      status: true,
+      featured: true,
+      views: true,
+      publishedAt: true,
+      updatedAt: true,
+      category: { select: { name: true } },
+      author: { select: { name: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}
 
 /**
  * Admin: post completo por id — incluye content y tags para el formulario de edición.

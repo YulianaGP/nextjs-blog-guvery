@@ -11,16 +11,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAdminPosts } from "@/services/posts.service";
+import { authOptions } from "@/lib/auth";
+import { getAdminPosts, getAuthorPosts } from "@/services/posts.service";
+import { getServerSession } from "next-auth";
 import Link from "next/link";
 
 export const metadata = {
   title: "Artículos | Admin",
 };
 
-export default async function ArticulosPage() {
-  // Obtenemos todos los posts (todos los estados) ordenados por updatedAt desc
-  const posts = await getAdminPosts();
+type Props = {
+  searchParams: Promise<{ q?: string }>;
+};
+
+export default async function ArticulosPage({ searchParams }: Props) {
+  const { q = "" } = await searchParams;
+  const query = q.trim().toLowerCase();
+
+  const session = await getServerSession(authOptions);
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  // Admin ve todos los posts; Editor ve solo los suyos
+  const allPosts = isAdmin
+    ? await getAdminPosts()
+    : await getAuthorPosts(session?.user?.id ?? "");
+
+  const posts = query
+    ? allPosts.filter(
+        (p) =>
+          p.title.toLowerCase().includes(query) ||
+          p.slug.toLowerCase().includes(query),
+      )
+    : allPosts;
 
   return (
     <div className="space-y-6">
@@ -28,7 +50,11 @@ export default async function ArticulosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-dark dark:text-white">Artículos</h1>
-          <p className="mt-1 text-sm text-gray-500">{posts.length} artículos en total</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {query
+              ? `${posts.length} resultado${posts.length !== 1 ? "s" : ""} para "${q}"`
+              : `${posts.length} artículos en total`}
+          </p>
         </div>
 
         {/* Botón para crear un nuevo artículo */}
@@ -47,6 +73,7 @@ export default async function ArticulosPage() {
             <TableRow>
               <TableHead className="min-w-[200px]">Título</TableHead>
               <TableHead>Categoría</TableHead>
+              {isAdmin && <TableHead>Autor</TableHead>}
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Vistas</TableHead>
               <TableHead>Actualizado</TableHead>
@@ -83,6 +110,12 @@ export default async function ArticulosPage() {
                   <TableCell className="text-sm text-gray-500">
                     {post.category.name}
                   </TableCell>
+
+                  {isAdmin && (
+                    <TableCell className="text-sm text-gray-500">
+                      {post.author?.name ?? "—"}
+                    </TableCell>
+                  )}
 
                   <TableCell>
                     <StatusBadge status={post.status} />

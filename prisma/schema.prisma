@@ -10,30 +10,51 @@ datasource db {
   directUrl = env("DIRECT_URL")  // conexión directa — usada por Prisma CLI (migrate, studio)
 }
 
-// ─── USUARIO ADMIN ────────────────────────────────────────────────────────────
+// ─── USUARIO ──────────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String      @unique
   emailVerified DateTime?
   image         String?
-  password      String? // Hash bcrypt — solo para Credentials provider
-  role          Role      @default(EDITOR)
+  password      String?     // Hash bcrypt — solo para Credentials provider (STAFF)
+  accountType   AccountType @default(MEMBER)
+  role          Role?       // Solo relevante para STAFF (ADMIN | EDITOR)
+
+  // Campos del perfil público del autor (solo STAFF con rol editorial)
+  slug String? @unique // URL pública: /autor/[slug]
+  bio  String? // Descripción corta visible en la página del autor
 
   // Relaciones NextAuth
   accounts Account[]
   sessions Session[]
 
   // Relaciones del blog
-  posts Post[]
+  posts    Post[]
+  comments Comment[]
+
+  // Relaciones de notificaciones
+  receivedNotifications Notification[] @relation("ReceivedNotifications")
+  sentNotifications     Notification[] @relation("SentNotifications")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([accountType])
+  @@index([role])
   @@map("users")
 }
 
+// Separa el tipo de cuenta del rol editorial
+// STAFF  → equipo interno (ADMIN/EDITOR), accede al dashboard
+// MEMBER → usuarios de la plataforma Guvery (compradores/viajeros), solo blog
+enum AccountType {
+  STAFF
+  MEMBER
+}
+
+// Solo aplica a usuarios STAFF
 enum Role {
   ADMIN
   EDITOR
@@ -105,11 +126,13 @@ model Post {
   metaDescription String?
 
   // Relaciones
-  author     User     @relation(fields: [authorId], references: [id])
-  authorId   String
-  category   Category @relation(fields: [categoryId], references: [id])
-  categoryId String
-  tags       Tag[]    @relation("PostTags")
+  author        User           @relation(fields: [authorId], references: [id])
+  authorId      String
+  category      Category       @relation(fields: [categoryId], references: [id])
+  categoryId    String
+  tags          Tag[]          @relation("PostTags")
+  notifications Notification[]
+  comments      Comment[]
 
   // Timestamps
   publishedAt DateTime? // Índice incluido: útil para "Últimos artículos" y sitemap
@@ -117,18 +140,21 @@ model Post {
   updatedAt   DateTime  @updatedAt // Expuesto en HU19 (fecha de actualización)
 
   @@index([slug])
+  @@index([authorId]) // Optimiza getAuthorPosts() — listado de artículos propios del editor
   @@index([categoryId])
   @@index([status])
   @@index([views])
   @@index([publishedAt]) // Optimiza queries de "artículos recientes" y sitemap
   @@index([featured]) // Optimiza queries de artículos destacados en el home
+  @@index([authorId, status]) // Optimiza "mis artículos pendientes/publicados" (filtro compuesto)
   @@map("posts")
 }
 
 enum PostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
+  DRAFT      // Autor escribiendo
+  REVIEW     // Enviado al admin para revisión
+  PUBLISHED  // Admin publicó
+  ARCHIVED   // Desactivado
 }
 
 // ─── CATEGORÍA ────────────────────────────────────────────────────────────────
@@ -184,4 +210,67 @@ enum SubscriberStatus {
   PENDING // Email ingresado, pendiente de confirmación
   CONFIRMED // Confirmó su suscripción vía token
   UNSUBSCRIBED // Se dio de baja
+}
+
+// ─── COMENTARIO ───────────────────────────────────────────────────────────────
+
+model Comment {
+  id      String        @id @default(cuid())
+  content String        @db.Text // Texto plano — sin HTML
+  status  CommentStatus @default(APPROVED)
+
+  // Relaciones
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
+  @@index([userId, status]) // Optimiza "comentarios aprobados de este post"
+  @@map("comments")
+}
+
+enum CommentStatus {
+  PENDING  // Pendiente de moderación (para uso futuro)
+  APPROVED // Visible públicamente (default actual)
+}
+
+// ─── NOTIFICACIÓN ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id      String           @id @default(cuid())
+  type    NotificationType
+  message String
+
+  // Destinatario de la notificación
+  userId String
+  user   User   @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Quién generó la notificación (autor o admin)
+  fromId String?
+  from   User?   @relation("SentNotifications", fields: [fromId], references: [id], onDelete: SetNull)
+
+  // Artículo relacionado (opcional — puede haberse eliminado)
+  postId String?
+  post   Post?   @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Índices optimizados para las queries más frecuentes:
+  @@index([userId])                // "dame todas las notifs del usuario X"
+  @@index([userId, read])          // "dame las notifs NO leídas del usuario X" (badge del header)
+  @@index([userId, createdAt])     // "dame las últimas N notifs del usuario X" (ordenadas)
+  @@index([postId])                // "dame todas las notifs asociadas al artículo Y"
+  @@map("notifications")
+}
+
+enum NotificationType {
+  POST_SUBMITTED      // Autor envió artículo a revisión → notifica a admins
+  POST_APPROVED       // Admin publicó el artículo → notifica al autor
+  POST_REJECTED       // Admin rechazó el artículo → notifica al autor
+  POST_NEEDS_REVISION // Admin solicita cambios → notifica al autor
 }

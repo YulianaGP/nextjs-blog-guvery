@@ -1,8 +1,11 @@
 "use server";
 
+import { createNotifications } from "@/actions/notification.actions";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { incrementPostViews } from "@/services/posts.service";
 import { PostStatus } from "@prisma/client";
+import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -37,13 +40,31 @@ const postSchema = z.object({
   slug: z
     .string()
     .min(3, "El slug debe tener al menos 3 caracteres.")
-    .regex(/^[a-z0-9-]+$/, "El slug solo puede contener letras minúsculas, números y guiones."),
+    .refine((val) => /^[a-z0-9-]+$/.test(val), "El slug solo puede contener letras minúsculas, números y guiones."),
   excerpt: z.string().min(10, "El resumen debe tener al menos 10 caracteres."),
   content: z.string().min(1, "El contenido no puede estar vacío."),
   categoryId: z.string().min(1, "Selecciona una categoría."),
-  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]),
+  status: z.enum(["DRAFT", "REVIEW", "PUBLISHED", "ARCHIVED"]),
   featured: z.boolean().optional(),
-  coverImage: z.string().url("URL de imagen no válida.").optional().or(z.literal("")),
+  coverImage: z
+    .string()
+    .refine((val) => {
+      try { new URL(val); return true; } catch { return false; }
+    }, "URL de imagen no válida.")
+    .refine(
+      (url) => {
+        try {
+          const { hostname } = new URL(url);
+          const allowed = ["res.cloudinary.com", "images.unsplash.com", "blob.vercel-storage.com", "cdn.guvery.com"];
+          return allowed.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+        } catch {
+          return false;
+        }
+      },
+      "La imagen debe provenir de un dominio permitido (Cloudinary, Unsplash, Vercel Blob).",
+    )
+    .optional()
+    .or(z.literal("")),
   metaTitle: z.string().optional(),
   metaDescription: z.string().optional(),
 });
@@ -88,25 +109,34 @@ export async function createPost(
     return { success: false, message: "Ya existe un artículo con ese slug." };
   }
 
-  const authorId = await getDefaultAuthorId();
+  // El autor es el usuario de la sesión activa
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/admin/login");
+  const authorId = session.user.id;
 
-  await prisma.post.create({
-    data: {
-      title,
-      slug,
-      excerpt,
-      content,
-      categoryId,
-      authorId,
-      status: status as PostStatus,
-      featured: featured ?? false,
-      coverImage: coverImage || null,
-      metaTitle: metaTitle || null,
-      metaDescription: metaDescription || null,
-      // Si se publica directamente, guardamos la fecha de publicación
-      publishedAt: status === "PUBLISHED" ? new Date() : null,
-    },
-  });
+  let newPost: { id: string };
+  try {
+    newPost = await prisma.post.create({
+      data: {
+        title,
+        slug,
+        excerpt,
+        content,
+        categoryId,
+        authorId,
+        status: status as PostStatus,
+        featured: featured ?? false,
+        coverImage: coverImage || null,
+        metaTitle: metaTitle || null,
+        metaDescription: metaDescription || null,
+        readingTime: calcReadingTime(content),
+        // Si se publica directamente, guardamos la fecha de publicación
+        publishedAt: status === "PUBLISHED" ? new Date() : null,
+      },
+    });
+  } catch {
+    return { success: false, message: "Error al guardar el artículo. Inténtalo de nuevo." };
+  }
 
   // Borramos la caché de la lista de artículos del admin
   revalidatePath("/admin/articulos");
@@ -114,6 +144,24 @@ export async function createPost(
   if (status === "PUBLISHED") {
     revalidatePath("/blog");
     revalidatePath(`/blog/${slug}`);
+  }
+
+  // Notificar a todos los admins si el autor envía a revisión
+  if (status === "REVIEW") {
+    const [admins, author] = await Promise.all([
+      prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
+      prisma.user.findUnique({ where: { id: authorId }, select: { name: true } }),
+    ]);
+    const adminIds = admins.map((a) => a.id).filter((id) => id !== authorId);
+    if (adminIds.length > 0) {
+      await createNotifications({
+        userIds: adminIds,
+        fromId: authorId,
+        postId: newPost.id,
+        type: "POST_SUBMITTED",
+        message: `${author?.name ?? "Un autor"} ha enviado "${title}" para revisión.`,
+      });
+    }
   }
 
   // redirect() lanza una excepción especial de Next.js para navegar al usuario.
@@ -137,32 +185,49 @@ export async function updatePost(
   const { title, slug, excerpt, content, categoryId, status, featured, coverImage, metaTitle, metaDescription } =
     parsed.data;
 
+  const session = await getServerSession(authOptions);
+  const currentUserId = session?.user?.id;
+  if (!currentUserId) redirect("/admin/login");
+
   // Verificar que el slug no esté en uso por OTRO post
   const existing = await prisma.post.findUnique({ where: { slug } });
   if (existing && existing.id !== id) {
     return { success: false, message: "Ya existe otro artículo con ese slug." };
   }
 
-  const currentPost = await prisma.post.findUnique({ where: { id }, select: { slug: true, publishedAt: true, status: true } });
-
-  await prisma.post.update({
+  const currentPost = await prisma.post.findUnique({
     where: { id },
-    data: {
-      title,
-      slug,
-      excerpt,
-      content,
-      categoryId,
-      status: status as PostStatus,
-      featured: featured ?? false,
-      coverImage: coverImage || null,
-      metaTitle: metaTitle || null,
-      metaDescription: metaDescription || null,
-      // Solo establecemos publishedAt si se está publicando por primera vez
-      publishedAt:
-        status === "PUBLISHED" && !currentPost?.publishedAt ? new Date() : currentPost?.publishedAt,
-    },
+    select: { slug: true, publishedAt: true, status: true, authorId: true },
   });
+
+  // EDITOR solo puede editar sus propios artículos
+  if (session.user.role === "EDITOR" && currentPost?.authorId !== currentUserId) {
+    return { success: false, message: "No tienes permiso para editar este artículo." };
+  }
+
+  try {
+    await prisma.post.update({
+      where: { id },
+      data: {
+        title,
+        slug,
+        excerpt,
+        content,
+        categoryId,
+        status: status as PostStatus,
+        featured: featured ?? false,
+        coverImage: coverImage || null,
+        metaTitle: metaTitle || null,
+        metaDescription: metaDescription || null,
+        readingTime: calcReadingTime(content),
+        // Solo establecemos publishedAt si se está publicando por primera vez
+        publishedAt:
+          status === "PUBLISHED" && !currentPost?.publishedAt ? new Date() : currentPost?.publishedAt,
+      },
+    });
+  } catch {
+    return { success: false, message: "Error al actualizar el artículo. Inténtalo de nuevo." };
+  }
 
   // Invalida la caché del slug anterior (por si cambió) y el nuevo
   if (currentPost?.slug && currentPost.slug !== slug) {
@@ -172,15 +237,78 @@ export async function updatePost(
   revalidatePath("/admin/articulos");
   revalidatePath("/blog");
 
+  // Notificaciones por cambio de estado
+  if (currentPost) {
+    const oldStatus = currentPost.status;
+    const authorId = currentPost.authorId;
+
+    if (status === "REVIEW" && oldStatus !== "REVIEW") {
+      // Autor envía a revisión → notificar a todos los admins
+      const [admins, author] = await Promise.all([
+        prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
+        prisma.user.findUnique({ where: { id: currentUserId }, select: { name: true } }),
+      ]);
+      const adminIds = admins.map((a) => a.id).filter((aid) => aid !== currentUserId);
+      if (adminIds.length > 0) {
+        await createNotifications({
+          userIds: adminIds,
+          fromId: currentUserId,
+          postId: id,
+          type: "POST_SUBMITTED",
+          message: `${author?.name ?? "Un autor"} ha enviado "${title}" para revisión.`,
+        });
+      }
+    } else if (status === "PUBLISHED" && oldStatus !== "PUBLISHED" && currentUserId !== authorId) {
+      // Admin publica → notificar al autor
+      await createNotifications({
+        userIds: [authorId],
+        fromId: currentUserId,
+        postId: id,
+        type: "POST_APPROVED",
+        message: `Tu artículo "${title}" ha sido publicado.`,
+      });
+    } else if (status === "ARCHIVED" && oldStatus === "REVIEW") {
+      // Admin rechaza desde revisión → notificar al autor
+      await createNotifications({
+        userIds: [authorId],
+        fromId: currentUserId,
+        postId: id,
+        type: "POST_REJECTED",
+        message: `Tu artículo "${title}" no fue aprobado y ha sido archivado.`,
+      });
+    } else if (status === "DRAFT" && oldStatus === "REVIEW") {
+      // Admin devuelve a borrador → notificar al autor que debe revisar
+      await createNotifications({
+        userIds: [authorId],
+        fromId: currentUserId,
+        postId: id,
+        type: "POST_NEEDS_REVISION",
+        message: `Tu artículo "${title}" necesita revisiones antes de ser publicado.`,
+      });
+    }
+  }
+
   redirect("/admin/articulos");
 }
 
 // ── Eliminar artículo ──────────────────────────────────────────────────────────
 
 export async function deletePost(id: string): Promise<PostActionState> {
-  const post = await prisma.post.findUnique({ where: { id }, select: { slug: true } });
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/admin/login");
 
-  await prisma.post.delete({ where: { id } });
+  const post = await prisma.post.findUnique({ where: { id }, select: { slug: true, authorId: true } });
+
+  // EDITOR solo puede eliminar sus propios artículos
+  if (session.user.role === "EDITOR" && post?.authorId !== session.user.id) {
+    return { success: false, message: "No tienes permiso para eliminar este artículo." };
+  }
+
+  try {
+    await prisma.post.delete({ where: { id } });
+  } catch {
+    return { success: false, message: "Error al eliminar el artículo. Inténtalo de nuevo." };
+  }
 
   // Borramos la caché de la página del artículo eliminado
   if (post?.slug) {
@@ -198,19 +326,83 @@ export async function changePostStatus(
   id: string,
   newStatus: PostStatus,
 ): Promise<PostActionState> {
-  const post = await prisma.post.update({
+  // Verificar sesión antes de cualquier operación
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/admin/login");
+  const currentUserId = session.user.id;
+
+  // Obtener datos actuales antes de actualizar (necesarios para notificaciones y row-level auth)
+  const currentPost = await prisma.post.findUnique({
     where: { id },
-    data: {
-      status: newStatus,
-      // Si se publica y no tenía fecha, la asignamos ahora
-      publishedAt: newStatus === PostStatus.PUBLISHED ? new Date() : undefined,
-    },
-    select: { slug: true },
+    select: { slug: true, title: true, authorId: true, status: true },
   });
 
-  revalidatePath(`/blog/${post.slug}`);
+  if (!currentPost) return { success: false, message: "Artículo no encontrado." };
+
+  // EDITOR solo puede cambiar el estado de sus propios artículos
+  if (session.user.role === "EDITOR" && currentPost.authorId !== currentUserId) {
+    return { success: false, message: "No tienes permiso para modificar este artículo." };
+  }
+
+  try {
+    await prisma.post.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        // Si se publica y no tenía fecha, la asignamos ahora
+        publishedAt: newStatus === PostStatus.PUBLISHED ? new Date() : undefined,
+      },
+    });
+  } catch {
+    return { success: false, message: "Error al cambiar el estado. Inténtalo de nuevo." };
+  }
+
+  revalidatePath(`/blog/${currentPost.slug}`);
   revalidatePath("/admin/articulos");
   revalidatePath("/blog");
+  const { authorId, title, status: oldStatus } = currentPost;
+
+  if (newStatus === PostStatus.PUBLISHED && oldStatus !== PostStatus.PUBLISHED && currentUserId !== authorId) {
+    await createNotifications({
+      userIds: [authorId],
+      fromId: currentUserId,
+      postId: id,
+      type: "POST_APPROVED",
+      message: `Tu artículo "${title}" ha sido publicado.`,
+    });
+  } else if (newStatus === PostStatus.ARCHIVED && oldStatus === PostStatus.REVIEW) {
+    await createNotifications({
+      userIds: [authorId],
+      fromId: currentUserId,
+      postId: id,
+      type: "POST_REJECTED",
+      message: `Tu artículo "${title}" no fue aprobado y ha sido archivado.`,
+    });
+  } else if (newStatus === PostStatus.DRAFT && oldStatus === PostStatus.REVIEW) {
+    await createNotifications({
+      userIds: [authorId],
+      fromId: currentUserId,
+      postId: id,
+      type: "POST_NEEDS_REVISION",
+      message: `Tu artículo "${title}" necesita revisiones antes de ser publicado.`,
+    });
+  } else if (newStatus === PostStatus.REVIEW && oldStatus !== PostStatus.REVIEW) {
+    // Caso: admin pone manualmente en revisión → notificar a los demás admins
+    const [admins, author] = await Promise.all([
+      prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
+      prisma.user.findUnique({ where: { id: authorId }, select: { name: true } }),
+    ]);
+    const adminIds = admins.map((a) => a.id).filter((aid) => aid !== currentUserId);
+    if (adminIds.length > 0) {
+      await createNotifications({
+        userIds: adminIds,
+        fromId: currentUserId,
+        postId: id,
+        type: "POST_SUBMITTED",
+        message: `${author?.name ?? "Un autor"} ha enviado "${title}" para revisión.`,
+      });
+    }
+  }
 
   return { success: true, message: `Estado cambiado a ${newStatus}.` };
 }
@@ -218,14 +410,12 @@ export async function changePostStatus(
 // ── Helpers internos ───────────────────────────────────────────────────────────
 
 /**
- * Obtiene el id del primer usuario ADMIN disponible.
- * Se usa al crear un post sin un authorId explícito del formulario.
+ * Calcula el tiempo de lectura estimado en minutos a partir del HTML del contenido.
+ * Asume una velocidad de lectura de 200 palabras por minuto.
  */
-async function getDefaultAuthorId(): Promise<string> {
-  const admin = await prisma.user.findFirst({
-    where: { role: "ADMIN" },
-    select: { id: true },
-  });
-  if (!admin) throw new Error("No se encontró usuario ADMIN en la base de datos.");
-  return admin.id;
+function calcReadingTime(htmlContent: string): number {
+  const text = htmlContent.replace(/<[^>]+>/g, " ");
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(wordCount / 200));
 }
+

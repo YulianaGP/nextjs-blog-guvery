@@ -1,14 +1,21 @@
+import { auth } from "@/lib/auth";
+import { SearchBar } from "@/components/blog/SearchBar";
+import { ThemeToggleSwitch } from "@/components/Layouts/header/theme-toggle";
+import { BlogUserMenu } from "@/components/blog/BlogUserMenu";
 import Link from "next/link";
 import type { PropsWithChildren } from "react";
+import { Suspense } from "react";
 
-export default function BlogLayout({ children }: PropsWithChildren) {
+export default async function BlogLayout({ children }: PropsWithChildren) {
+  const session = await auth();
+
   return (
     <div className="flex min-h-screen flex-col bg-white dark:bg-gray-900">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             <span className="text-xl font-bold text-gray-900 dark:text-white">
               Guvery{" "}
               <span className="text-[#E86C2C]">Blog</span>
@@ -35,20 +42,27 @@ export default function BlogLayout({ children }: PropsWithChildren) {
             >
               Amazon
             </Link>
-            <Link
-              href="/buscar"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-            >
-              Buscar
-            </Link>
           </nav>
+
+          {/* Buscador compacto */}
+          <div className="hidden flex-1 max-w-xs sm:block">
+            <Suspense>
+              <SearchBar placeholder="Buscar artículos…" />
+            </Suspense>
+          </div>
+
+          {/* Theme toggle */}
+          <ThemeToggleSwitch />
+
+          {/* Auth — menú de usuario o botón de login */}
+          <BlogUserMenu session={session} />
 
           {/* CTA */}
           <a
             href="https://guvery.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-[#E86C2C] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="hidden shrink-0 rounded-lg bg-[#E86C2C] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:block"
           >
             Usar Guvery
           </a>

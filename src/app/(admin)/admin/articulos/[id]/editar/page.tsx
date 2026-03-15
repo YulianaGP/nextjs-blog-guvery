@@ -2,8 +2,10 @@
 // Lee el id de los params, busca el post en la BD, y pasa los datos al formulario.
 
 import { ArticleForm } from "@/components/admin/ArticleForm";
+import { authOptions } from "@/lib/auth";
 import { getCategories } from "@/services/categories.service";
 import { getPostById } from "@/services/posts.service";
+import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -22,11 +24,13 @@ export async function generateMetadata({ params }: Props) {
 export default async function EditarArticuloPage({ params }: Props) {
   const { id } = await params;
 
-  // Cargamos el post y las categorías en paralelo
-  const [post, categories] = await Promise.all([
+  const [post, categories, session] = await Promise.all([
     getPostById(id),
     getCategories(),
+    getServerSession(authOptions),
   ]);
+
+  const role = (session?.user?.role as "ADMIN" | "EDITOR") ?? "EDITOR";
 
   // Si el post no existe, mostramos la página 404 de Next.js
   if (!post) notFound();
@@ -66,7 +70,7 @@ export default async function EditarArticuloPage({ params }: Props) {
         ArticleForm con prop `post` → modo edición.
         El formulario usará updatePost.bind(null, post.id) internamente.
       */}
-      <ArticleForm post={postForForm} categories={categories} />
+      <ArticleForm post={postForForm} categories={categories} role={role} />
     </div>
   );
 }

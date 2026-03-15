@@ -7,6 +7,7 @@ type NavItem = {
   url?: string;
   icon: (props: SVGProps<SVGSVGElement>) => ReactElement;
   items: NavSubItem[];
+  adminOnly?: boolean; // Si es true, solo visible para rol ADMIN
 };
 type NavSection = { label: string; items: NavItem[] };
 
@@ -27,16 +28,25 @@ export const NAV_DATA: NavSection[] = [
         items: [],
       },
       {
+        title: "Autores",
+        url: "/admin/autores",
+        icon: Icons.User,
+        items: [],
+        adminOnly: true,
+      },
+      {
         title: "Categorías",
         url: "/admin/categorias",
         icon: Icons.FourCircle,
         items: [],
+        adminOnly: true,
       },
       {
         title: "Suscriptores",
         url: "/admin/suscriptores",
         icon: Icons.User,
         items: [],
+        adminOnly: true,
       },
     ],
   },
@@ -54,6 +64,7 @@ export const NAV_DATA: NavSection[] = [
         url: "/pages/settings",
         icon: Icons.Alphabet,
         items: [],
+        adminOnly: true,
       },
     ],
   },

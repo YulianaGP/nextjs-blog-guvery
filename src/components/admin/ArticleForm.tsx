@@ -30,6 +30,7 @@ type Props = {
   // Si viene post → modo edición. Si no viene → modo creación.
   post?: PostForEdit;
   categories: Category[];
+  role: "ADMIN" | "EDITOR";
 };
 
 // ── Helper: convertir título a slug ───────────────────────────────────────────
@@ -47,7 +48,8 @@ function titleToSlug(title: string): string {
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-export function ArticleForm({ post, categories }: Props) {
+export function ArticleForm({ post, categories, role }: Props) {
+  const isEditor = role === "EDITOR";
   const isEditing = !!post;
 
   // Cuando editamos, vinculamos updatePost con el id del post usando bind().
@@ -190,18 +192,36 @@ export function ArticleForm({ post, categories }: Props) {
           {/* Estado */}
           <div className="rounded-lg border border-stroke bg-white p-4 dark:border-dark-3 dark:bg-gray-dark">
             <h3 className="mb-3 text-sm font-semibold text-dark dark:text-white">Publicación</h3>
-            <div>
-              <label className="mb-2 block text-xs font-medium text-dark-6">Estado</label>
-              <select
-                name="status"
-                defaultValue={post?.status ?? "DRAFT"}
-                className="w-full rounded-lg border border-stroke bg-white px-3 py-2 text-sm text-dark outline-none focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
-              >
-                <option value="DRAFT">Borrador</option>
-                <option value="PUBLISHED">Publicado</option>
-                <option value="ARCHIVED">Archivado</option>
-              </select>
-            </div>
+
+            {isEditor ? (
+              // Editor: solo ve su estado actual (solo lectura)
+              <div className="mb-3">
+                <label className="mb-1 block text-xs font-medium text-dark-6">Estado actual</label>
+                <p className="text-sm font-medium text-dark dark:text-white">
+                  {post?.status === "REVIEW"
+                    ? "En revisión — esperando aprobación"
+                    : "Borrador"}
+                </p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Usa los botones de abajo para guardar o enviar al admin.
+                </p>
+              </div>
+            ) : (
+              // Admin: selector completo de estados
+              <div>
+                <label className="mb-2 block text-xs font-medium text-dark-6">Estado</label>
+                <select
+                  name="status"
+                  defaultValue={post?.status ?? "DRAFT"}
+                  className="w-full rounded-lg border border-stroke bg-white px-3 py-2 text-sm text-dark outline-none focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+                >
+                  <option value="DRAFT">Borrador</option>
+                  <option value="REVIEW">En revisión</option>
+                  <option value="PUBLISHED">Publicado</option>
+                  <option value="ARCHIVED">Archivado</option>
+                </select>
+              </div>
+            )}
 
             {/* Destacado */}
             <div className="mt-3 flex items-center gap-2">
@@ -255,20 +275,44 @@ export function ArticleForm({ post, categories }: Props) {
 
           {/* Botones de acción */}
           <div className="flex flex-col gap-3">
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-70"
-            >
-              {isPending && (
-                // Spinner SVG animado — se muestra mientras el servidor procesa
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-              )}
-              {isPending ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear artículo"}
-            </button>
+            {isEditor ? (
+              // Editor: dos botones — el botón clickeado envía su propio name/value como "status"
+              <>
+                <button
+                  type="submit"
+                  name="status"
+                  value="DRAFT"
+                  disabled={isPending}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-stroke px-6 py-3 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-70 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                >
+                  {isPending ? "Guardando..." : "Guardar borrador"}
+                </button>
+                <button
+                  type="submit"
+                  name="status"
+                  value="REVIEW"
+                  disabled={isPending}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-70"
+                >
+                  {isPending ? "Enviando..." : "Enviar a revisión →"}
+                </button>
+              </>
+            ) : (
+              // Admin: botón único, el estado viene del <select>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-70"
+              >
+                {isPending && (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                )}
+                {isPending ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear artículo"}
+              </button>
+            )}
 
             <Link
               href="/admin/articulos"

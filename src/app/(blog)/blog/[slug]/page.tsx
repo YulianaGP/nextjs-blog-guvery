@@ -1,7 +1,10 @@
+import sanitizeHtml from "sanitize-html";
 import { ArticleCard } from "@/components/blog/ArticleCard";
 import { CategoryBadge } from "@/components/blog/CategoryBadge";
+import { CommentSection } from "@/components/blog/CommentSection";
 import { NewsletterForm } from "@/components/blog/NewsletterForm";
 import { ShareButtons } from "@/components/blog/ShareButtons";
+import { TableOfContents } from "@/components/blog/TableOfContents";
 import { ViewIncrementer } from "@/components/blog/ViewIncrementer";
 import {
   buildBlogPostingSchema,
@@ -216,8 +219,20 @@ export default async function ArticlePage({ params }: Props) {
             {/* Contenido HTML — renderizado con @tailwindcss/typography */}
             {post.content ? (
               <div
+                id="article-content"
                 className="prose prose-gray max-w-none dark:prose-invert prose-headings:font-bold prose-a:text-[#E86C2C] prose-a:no-underline hover:prose-a:underline prose-img:rounded-2xl"
-                dangerouslySetInnerHTML={{ __html: post.content }}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(post.content, {
+                    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "figure", "figcaption", "iframe"]),
+                    allowedAttributes: {
+                      ...sanitizeHtml.defaults.allowedAttributes,
+                      img: ["src", "alt", "title", "width", "height", "loading"],
+                      iframe: ["src", "width", "height", "allowfullscreen", "frameborder"],
+                      "*": ["class", "id"],
+                    },
+                    allowedIframeHostnames: ["www.youtube.com", "player.vimeo.com"],
+                  }),
+                }}
               />
             ) : (
               <p className="text-gray-400 italic">
@@ -247,6 +262,9 @@ export default async function ArticlePage({ params }: Props) {
               <ShareButtons title={post.title} url={postUrl} />
             </div>
 
+            {/* Comentarios */}
+            <CommentSection postId={post.id} />
+
             {/* Artículos relacionados */}
             {relatedPosts.length > 0 && (
               <section className="mt-12">
@@ -264,15 +282,8 @@ export default async function ArticlePage({ params }: Props) {
 
           {/* ── Sidebar ────────────────────────────────────────────────────── */}
           <aside className="space-y-8">
-            {/* Tabla de contenidos placeholder — se puede mejorar con parser */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-white">
-                En este artículo
-              </h2>
-              <p className="text-sm text-gray-400">
-                Desplázate por el contenido para leer el artículo completo.
-              </p>
-            </div>
+            {/* Tabla de contenidos — extrae h2/h3 del artículo */}
+            <TableOfContents />
 
             {/* Más leídos */}
             {popularPosts.length > 0 && (

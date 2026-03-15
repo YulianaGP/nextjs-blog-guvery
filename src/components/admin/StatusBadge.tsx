@@ -11,17 +11,19 @@ type Props = {
 const statusConfig: Record<PostStatus, { label: string; className: string }> = {
   PUBLISHED: {
     label: "Publicado",
-    // Verde — indica que el artículo está visible al público
     className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   },
   DRAFT: {
     label: "Borrador",
-    // Amarillo — indica que el artículo está en progreso, no visible
     className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  },
+  REVIEW: {
+    label: "En revisión",
+    // Azul — enviado por el autor, pendiente de aprobación del admin
+    className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   },
   ARCHIVED: {
     label: "Archivado",
-    // Gris — indica que el artículo fue retirado del blog
     className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   },
 };
