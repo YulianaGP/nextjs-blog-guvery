@@ -81,7 +81,6 @@ export async function subscribeAction(
     });
 
     if (sendError) {
-      console.error("[newsletter] Resend error:", sendError);
       throw new Error(sendError.message);
     }
 
@@ -89,8 +88,7 @@ export async function subscribeAction(
       success: true,
       message: "¡Listo! Revisa tu correo y confirma tu suscripción.",
     };
-  } catch (err) {
-    console.error("[newsletter] subscribeAction error:", err);
+  } catch {
     return {
       success: false,
       message: "Ocurrió un error. Inténtalo de nuevo más tarde.",

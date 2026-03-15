@@ -10,12 +10,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-// ── Incrementar vistas (ya existía) ───────────────────────────────────────────
+// ── Incrementar vistas ────────────────────────────────────────────────────────
 
-/**
- * Incrementa el contador de vistas de un post.
- * Llamado desde ViewIncrementer (componente cliente) al montar la página.
- */
+/** Incrementa el contador de vistas. Llamado desde ViewIncrementer al montar la página. */
 export async function incrementViews(slug: string) {
   try {
     await incrementPostViews(slug);
@@ -33,8 +30,6 @@ export type PostActionState = {
 
 // ── Esquema de validación ─────────────────────────────────────────────────────
 
-// z.object define los campos que esperamos del formulario y sus reglas.
-// Si el campo no cumple la regla, Zod devuelve el mensaje de error.
 const postSchema = z.object({
   title: z.string().min(3, "El título debe tener al menos 3 caracteres."),
   slug: z
@@ -78,8 +73,6 @@ function extractPostData(formData: FormData) {
     excerpt: formData.get("excerpt"),
     content: formData.get("content"),
     categoryId: formData.get("categoryId"),
-    // Los checkboxes solo envían valor cuando están marcados; si no, el campo no existe.
-    // formData.get("featured") devuelve "on" si marcado, null si no.
     featured: formData.get("featured") === "on",
     status: formData.get("status") ?? "DRAFT",
     coverImage: formData.get("coverImage"),
@@ -109,7 +102,6 @@ export async function createPost(
     return { success: false, message: "Ya existe un artículo con ese slug." };
   }
 
-  // El autor es el usuario de la sesión activa
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/admin/login");
   const authorId = session.user.id;
@@ -130,7 +122,6 @@ export async function createPost(
         metaTitle: metaTitle || null,
         metaDescription: metaDescription || null,
         readingTime: calcReadingTime(content),
-        // Si se publica directamente, guardamos la fecha de publicación
         publishedAt: status === "PUBLISHED" ? new Date() : null,
       },
     });
@@ -138,15 +129,12 @@ export async function createPost(
     return { success: false, message: "Error al guardar el artículo. Inténtalo de nuevo." };
   }
 
-  // Borramos la caché de la lista de artículos del admin
   revalidatePath("/admin/articulos");
-  // Si se publicó, también borramos la caché del blog público
   if (status === "PUBLISHED") {
     revalidatePath("/blog");
     revalidatePath(`/blog/${slug}`);
   }
 
-  // Notificar a todos los admins si el autor envía a revisión
   if (status === "REVIEW") {
     const [admins, author] = await Promise.all([
       prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
@@ -164,8 +152,6 @@ export async function createPost(
     }
   }
 
-  // redirect() lanza una excepción especial de Next.js para navegar al usuario.
-  // Debe llamarse FUERA de un try/catch para que funcione correctamente.
   redirect("/admin/articulos");
 }
 
@@ -189,7 +175,6 @@ export async function updatePost(
   const currentUserId = session?.user?.id;
   if (!currentUserId) redirect("/admin/login");
 
-  // Verificar que el slug no esté en uso por OTRO post
   const existing = await prisma.post.findUnique({ where: { slug } });
   if (existing && existing.id !== id) {
     return { success: false, message: "Ya existe otro artículo con ese slug." };
@@ -200,7 +185,6 @@ export async function updatePost(
     select: { slug: true, publishedAt: true, status: true, authorId: true },
   });
 
-  // EDITOR solo puede editar sus propios artículos
   if (session.user.role === "EDITOR" && currentPost?.authorId !== currentUserId) {
     return { success: false, message: "No tienes permiso para editar este artículo." };
   }
@@ -220,7 +204,6 @@ export async function updatePost(
         metaTitle: metaTitle || null,
         metaDescription: metaDescription || null,
         readingTime: calcReadingTime(content),
-        // Solo establecemos publishedAt si se está publicando por primera vez
         publishedAt:
           status === "PUBLISHED" && !currentPost?.publishedAt ? new Date() : currentPost?.publishedAt,
       },
@@ -229,7 +212,6 @@ export async function updatePost(
     return { success: false, message: "Error al actualizar el artículo. Inténtalo de nuevo." };
   }
 
-  // Invalida la caché del slug anterior (por si cambió) y el nuevo
   if (currentPost?.slug && currentPost.slug !== slug) {
     revalidatePath(`/blog/${currentPost.slug}`);
   }
@@ -237,7 +219,6 @@ export async function updatePost(
   revalidatePath("/admin/articulos");
   revalidatePath("/blog");
 
-  // Notificaciones por cambio de estado
   if (currentPost) {
     const oldStatus = currentPost.status;
     const authorId = currentPost.authorId;
@@ -310,7 +291,6 @@ export async function deletePost(id: string): Promise<PostActionState> {
     return { success: false, message: "Error al eliminar el artículo. Inténtalo de nuevo." };
   }
 
-  // Borramos la caché de la página del artículo eliminado
   if (post?.slug) {
     revalidatePath(`/blog/${post.slug}`);
   }
@@ -326,12 +306,10 @@ export async function changePostStatus(
   id: string,
   newStatus: PostStatus,
 ): Promise<PostActionState> {
-  // Verificar sesión antes de cualquier operación
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/admin/login");
   const currentUserId = session.user.id;
 
-  // Obtener datos actuales antes de actualizar (necesarios para notificaciones y row-level auth)
   const currentPost = await prisma.post.findUnique({
     where: { id },
     select: { slug: true, title: true, authorId: true, status: true },
@@ -339,7 +317,6 @@ export async function changePostStatus(
 
   if (!currentPost) return { success: false, message: "Artículo no encontrado." };
 
-  // EDITOR solo puede cambiar el estado de sus propios artículos
   if (session.user.role === "EDITOR" && currentPost.authorId !== currentUserId) {
     return { success: false, message: "No tienes permiso para modificar este artículo." };
   }
@@ -349,7 +326,6 @@ export async function changePostStatus(
       where: { id },
       data: {
         status: newStatus,
-        // Si se publica y no tenía fecha, la asignamos ahora
         publishedAt: newStatus === PostStatus.PUBLISHED ? new Date() : undefined,
       },
     });
@@ -387,7 +363,6 @@ export async function changePostStatus(
       message: `Tu artículo "${title}" necesita revisiones antes de ser publicado.`,
     });
   } else if (newStatus === PostStatus.REVIEW && oldStatus !== PostStatus.REVIEW) {
-    // Caso: admin pone manualmente en revisión → notificar a los demás admins
     const [admins, author] = await Promise.all([
       prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
       prisma.user.findUnique({ where: { id: authorId }, select: { name: true } }),

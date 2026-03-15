@@ -12,16 +12,13 @@ import { revalidatePath } from "next/cache";
 
 // ── Validación ─────────────────────────────────────────────────────────────
 
-const MIN_LENGTH = COMMENT_MIN_LENGTH;
-const MAX_LENGTH = COMMENT_MAX_LENGTH;
-
 function validateContent(content: unknown): string {
   if (typeof content !== "string") throw new Error("Contenido inválido.");
   const trimmed = content.trim();
-  if (trimmed.length < MIN_LENGTH)
-    throw new Error(`El comentario debe tener al menos ${MIN_LENGTH} caracteres.`);
-  if (trimmed.length > MAX_LENGTH)
-    throw new Error(`El comentario no puede superar los ${MAX_LENGTH} caracteres.`);
+  if (trimmed.length < COMMENT_MIN_LENGTH)
+    throw new Error(`El comentario debe tener al menos ${COMMENT_MIN_LENGTH} caracteres.`);
+  if (trimmed.length > COMMENT_MAX_LENGTH)
+    throw new Error(`El comentario no puede superar los ${COMMENT_MAX_LENGTH} caracteres.`);
   return trimmed;
 }
 

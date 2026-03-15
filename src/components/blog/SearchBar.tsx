@@ -4,9 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useRef } from "react";
 
 type Props = {
-  /** Texto inicial del input (útil en la página /buscar para pre-rellenar). */
   defaultValue?: string;
-  /** Placeholder del campo. */
   placeholder?: string;
 };
 
@@ -34,7 +32,6 @@ export function SearchBar({
       className="flex w-full items-center gap-2"
     >
       <div className="relative flex-1">
-        {/* Icono lupa */}
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
           <svg
             className="h-4 w-4"

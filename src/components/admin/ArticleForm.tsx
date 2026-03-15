@@ -10,7 +10,6 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { TiptapEditor } from "./TiptapEditor";
 
-// Tipo del post que recibimos al editar (incluye tags y categoría)
 type PostForEdit = {
   id: string;
   title: string;
@@ -27,34 +26,26 @@ type PostForEdit = {
 };
 
 type Props = {
-  // Si viene post → modo edición. Si no viene → modo creación.
   post?: PostForEdit;
   categories: Category[];
   role: "ADMIN" | "EDITOR";
 };
 
-// ── Helper: convertir título a slug ───────────────────────────────────────────
-// Por ejemplo: "¿Cómo comprar en Amazon?" → "como-comprar-en-amazon"
 function titleToSlug(title: string): string {
   return title
     .toLowerCase()
-    .normalize("NFD") // descompone caracteres acentuados: é → e + ́
-    .replace(/[\u0300-\u036f]/g, "") // elimina los diacríticos (acentos)
-    .replace(/[^a-z0-9\s-]/g, "") // elimina caracteres no permitidos
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
     .trim()
-    .replace(/\s+/g, "-") // reemplaza espacios por guiones
-    .replace(/-+/g, "-"); // colapsa guiones dobles o triples
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 }
-
-// ── Componente principal ───────────────────────────────────────────────────────
 
 export function ArticleForm({ post, categories, role }: Props) {
   const isEditor = role === "EDITOR";
   const isEditing = !!post;
 
-  // Cuando editamos, vinculamos updatePost con el id del post usando bind().
-  // bind(null, post.id) crea una nueva función donde el primer argumento
-  // (id) ya está fijado en post.id, y useActionState solo pasa prevState + formData.
   const action = isEditing
     ? updatePost.bind(null, post.id)
     : createPost;
@@ -64,13 +55,10 @@ export function ArticleForm({ post, categories, role }: Props) {
     null,
   );
 
-  // Título y slug como estado local para poder sincronizarlos
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
-  // Controla si el slug fue editado manualmente (si es así, no auto-generamos)
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(isEditing);
 
-  // Auto-generar slug desde el título (solo en modo creación o si no fue editado)
   useEffect(() => {
     if (!slugManuallyEdited) {
       setSlug(titleToSlug(title));
@@ -79,7 +67,6 @@ export function ArticleForm({ post, categories, role }: Props) {
 
   return (
     <form action={formAction} className="space-y-6">
-      {/* ── Mensaje de error global ─────────────────────────────────────── */}
       {state && !state.success && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           {state.message}
@@ -87,9 +74,7 @@ export function ArticleForm({ post, categories, role }: Props) {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* ── Columna principal (2/3) ──────────────────────────────────── */}
         <div className="space-y-5 lg:col-span-2">
-          {/* Título */}
           <div>
             <label className="mb-2 block text-sm font-medium text-dark dark:text-white">
               Título *
@@ -105,7 +90,6 @@ export function ArticleForm({ post, categories, role }: Props) {
             />
           </div>
 
-          {/* Slug */}
           <div>
             <label className="mb-2 block text-sm font-medium text-dark dark:text-white">
               Slug (URL) *
@@ -130,7 +114,6 @@ export function ArticleForm({ post, categories, role }: Props) {
             </p>
           </div>
 
-          {/* Resumen */}
           <div>
             <label className="mb-2 block text-sm font-medium text-dark dark:text-white">
               Resumen (excerpt) *
@@ -145,7 +128,6 @@ export function ArticleForm({ post, categories, role }: Props) {
             />
           </div>
 
-          {/* Editor Tiptap */}
           <div>
             <label className="mb-2 block text-sm font-medium text-dark dark:text-white">
               Contenido *
@@ -153,7 +135,6 @@ export function ArticleForm({ post, categories, role }: Props) {
             <TiptapEditor defaultValue={post?.content ?? ""} />
           </div>
 
-          {/* SEO */}
           <details className="rounded-lg border border-stroke dark:border-dark-3">
             <summary className="cursor-pointer rounded-lg p-4 text-sm font-medium text-dark dark:text-white">
               SEO (opcional)
@@ -187,14 +168,11 @@ export function ArticleForm({ post, categories, role }: Props) {
           </details>
         </div>
 
-        {/* ── Sidebar de opciones (1/3) ────────────────────────────────── */}
         <div className="space-y-5">
-          {/* Estado */}
           <div className="rounded-lg border border-stroke bg-white p-4 dark:border-dark-3 dark:bg-gray-dark">
             <h3 className="mb-3 text-sm font-semibold text-dark dark:text-white">Publicación</h3>
 
             {isEditor ? (
-              // Editor: solo ve su estado actual (solo lectura)
               <div className="mb-3">
                 <label className="mb-1 block text-xs font-medium text-dark-6">Estado actual</label>
                 <p className="text-sm font-medium text-dark dark:text-white">
@@ -207,7 +185,6 @@ export function ArticleForm({ post, categories, role }: Props) {
                 </p>
               </div>
             ) : (
-              // Admin: selector completo de estados
               <div>
                 <label className="mb-2 block text-xs font-medium text-dark-6">Estado</label>
                 <select
@@ -223,7 +200,6 @@ export function ArticleForm({ post, categories, role }: Props) {
               </div>
             )}
 
-            {/* Destacado */}
             <div className="mt-3 flex items-center gap-2">
               <input
                 type="checkbox"
@@ -238,7 +214,6 @@ export function ArticleForm({ post, categories, role }: Props) {
             </div>
           </div>
 
-          {/* Categoría */}
           <div className="rounded-lg border border-stroke bg-white p-4 dark:border-dark-3 dark:bg-gray-dark">
             <h3 className="mb-3 text-sm font-semibold text-dark dark:text-white">Categoría *</h3>
             <select
@@ -258,7 +233,6 @@ export function ArticleForm({ post, categories, role }: Props) {
             </select>
           </div>
 
-          {/* Imagen de portada */}
           <div className="rounded-lg border border-stroke bg-white p-4 dark:border-dark-3 dark:bg-gray-dark">
             <h3 className="mb-3 text-sm font-semibold text-dark dark:text-white">
               Imagen de portada
@@ -273,10 +247,8 @@ export function ArticleForm({ post, categories, role }: Props) {
             <p className="mt-1 text-xs text-gray-500">URL de la imagen (Cloudinary, etc.)</p>
           </div>
 
-          {/* Botones de acción */}
           <div className="flex flex-col gap-3">
             {isEditor ? (
-              // Editor: dos botones — el botón clickeado envía su propio name/value como "status"
               <>
                 <button
                   type="submit"
@@ -298,7 +270,6 @@ export function ArticleForm({ post, categories, role }: Props) {
                 </button>
               </>
             ) : (
-              // Admin: botón único, el estado viene del <select>
               <button
                 type="submit"
                 disabled={isPending}

@@ -1,89 +1,211 @@
-# NextAdmin - Next.js Admin Dashboard Template and Components
+# Guvery Blog — Panel de Administración
 
-**NextAdmin** is a Free, open-source Next.js admin dashboard toolkit featuring 200+ UI components and templates that come with pre-built elements, components, pages, high-quality design, integrations, and much more to help you create powerful admin dashboards with ease.
+Plataforma de blog con panel de administración construida con **Next.js 15**, **TypeScript** y **PostgreSQL**. Permite a los autores crear y gestionar artículos con un flujo editorial completo, y a los lectores explorar, buscar y comentar el contenido publicado.
 
+---
 
-[![nextjs admin template](https://cdn.pimjo.com/nextadmin-2.png)](https://nextadmin.co/)
+## Stack tecnológico
 
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| Lenguaje | TypeScript 5 |
+| Estilos | Tailwind CSS |
+| Base de datos | PostgreSQL (Neon) via Prisma ORM |
+| Autenticación | NextAuth v4 (Credentials + Google OAuth) |
+| Editor de texto | Tiptap |
+| Email | Resend |
+| Validación | Zod |
+| Deploy | Vercel |
 
-**NextAdmin** provides you with a diverse set of dashboard UI components, elements, examples and pages necessary for creating top-notch admin panels or dashboards with **powerful** features and integrations. Whether you are working on a complex web application or a basic website, **NextAdmin** has got you covered.
+---
 
-### [✨ Visit Website](https://nextadmin.co/)
-### [🚀 Live Demo](https://demo.nextadmin.co/)
-### [📖 Docs](https://docs.nextadmin.co/)
+## Funcionalidades
 
-By leveraging the latest features of **Next.js 14** and key functionalities like **server-side rendering (SSR)**, **static site generation (SSG)**, and seamless **API route integration**, **NextAdmin** ensures optimal performance. With the added benefits of **React 18 advancements** and **TypeScript** reliability, **NextAdmin** is the ultimate choice to kickstart your **Next.js** project efficiently.
+### Blog público
+- Listado paginado de artículos con filtro por categoría
+- Página de detalle con tabla de contenidos, tiempo de lectura y contador de vistas
+- Artículos relacionados y populares
+- Búsqueda de texto completo
+- Sistema de comentarios con rate limiting (5 comentarios/hora por usuario)
+- Newsletter con doble opt-in por email
+- Perfiles de autor
+- Compartir en redes sociales
 
-## Installation
+### Panel de administración
+- Dashboard con métricas: artículos, vistas, suscriptores
+- Gestión de artículos con editor enriquecido (Tiptap)
+- Flujo editorial: Borrador → Revisión → Publicado → Archivado
+- Sistema de notificaciones en tiempo real entre autores y admins
+- Gestión de autores y categorías
+- Exportación de suscriptores a CSV
+- Configuración de perfil y foto de usuario
+- Soporte para modo oscuro
 
-1. Download/fork/clone the repo and Once you're in the correct directory, it's time to install all the necessary dependencies. You can do this by typing the following command:
+### Seguridad y acceso
+- Control de acceso por roles: ADMIN, EDITOR, MEMBER
+- Middleware de protección de rutas `/admin/*`
+- Validación de datos con Zod en todas las acciones del servidor
+- Sanitización de contenido HTML
+- Rate limiting en comentarios
+
+---
+
+## Estructura del proyecto
 
 ```
+src/
+├── app/
+│   ├── (admin)/          # Panel de administración (protegido)
+│   │   ├── admin/        # Dashboard, artículos, autores, categorías
+│   │   └── pages/        # Configuración y perfil
+│   ├── (blog)/           # Blog público
+│   │   ├── blog/         # Listado y detalle de artículos
+│   │   ├── autor/        # Perfil de autor
+│   │   ├── buscar/       # Búsqueda
+│   │   └── categoria/    # Artículos por categoría
+│   ├── admin/login/      # Login público
+│   └── api/              # API routes (auth, search, newsletter, export)
+├── actions/              # Server Actions (CRUD)
+├── services/             # Queries a base de datos con caché
+├── components/
+│   ├── admin/            # Formularios y componentes del panel
+│   └── blog/             # Componentes del blog público
+└── lib/                  # Auth, Prisma, constantes, utilidades
+```
+
+---
+
+## Modelos de base de datos
+
+- **User** — Usuarios con roles (ADMIN, EDITOR) y tipos de cuenta (STAFF, MEMBER)
+- **Post** — Artículos con estados, SEO, tiempo de lectura y vistas
+- **Category** — Categorías con slug y color
+- **Tag** — Etiquetas de artículos
+- **Comment** — Comentarios con estado de aprobación
+- **Subscriber** — Suscriptores del newsletter con doble opt-in
+- **Notification** — Notificaciones del sistema para el flujo editorial
+
+---
+
+## Requisitos previos
+
+- Node.js 18+
+- PostgreSQL (o cuenta en [Neon](https://neon.tech))
+- Cuenta en [Resend](https://resend.com) (para emails)
+- Cuenta en Google Cloud Console (para OAuth)
+
+---
+
+## Instalación local
+
+```bash
+# 1. Clonar el repositorio
+git clone <url-del-repo>
+cd nextjs-admin-dashboard
+
+# 2. Instalar dependencias
 npm install
-```
-If you're using **Yarn** as your package manager, the command will be:
 
-```
-yarn install
-```
+# 3. Configurar variables de entorno
+cp .env.example .env.local
+# Editar .env.local con tus credenciales
 
-2. Okay, you're almost there. Now all you need to do is start the development server. If you're using **npm**, the command is:
+# 4. Ejecutar migraciones
+npm run db:migrate
 
-```
+# 5. (Opcional) Cargar datos de prueba
+npm run db:seed
+
+# 6. Iniciar servidor de desarrollo
 npm run dev
 ```
-And if you're using **Yarn**, it's:
+
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+
+---
+
+## Variables de entorno
+
+Crea un archivo `.env.local` con las siguientes variables:
+
+```env
+# Base de datos (Neon PostgreSQL)
+DATABASE_URL="postgresql://..."
+DIRECT_URL="postgresql://..."
+
+# NextAuth
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="genera-con: openssl rand -hex 32"
+
+# Google OAuth (opcional)
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+
+# Resend (para newsletter)
+RESEND_API_KEY=""
+
+# URL pública del sitio
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+```
+
+> El archivo `.env.local` está en `.gitignore` y nunca debe subirse al repositorio.
+
+---
+
+## Scripts disponibles
+
+```bash
+npm run dev          # Servidor de desarrollo
+npm run build        # Build de producción
+npm run start        # Iniciar en producción
+npm run lint         # Linter ESLint
+
+npm run db:migrate   # Ejecutar migraciones de Prisma
+npm run db:push      # Sync schema sin migraciones
+npm run db:seed      # Poblar base de datos con datos iniciales
+npm run db:studio    # Abrir Prisma Studio (UI de base de datos)
+npm run db:generate  # Regenerar Prisma Client
+```
+
+---
+
+## Flujo editorial
 
 ```
-yarn dev
+DRAFT → REVIEW → PUBLISHED → ARCHIVED
+  ↑         |
+  └─────────┘ (devolver a borrador)
 ```
 
-And voila! You're now ready to start developing. **Happy coding**!
+1. El **Editor** crea un artículo en borrador y lo envía a revisión
+2. El **Admin** recibe una notificación y puede publicar, devolver a borrador o archivar
+3. El **Editor** recibe una notificación con el resultado
 
-## Highlighted Features
-**200+ Next.js Dashboard Ul Components and Templates** - includes a variety of prebuilt **Ul elements, components, pages, and examples** crafted with a high-quality design.
-Additionally, features seamless **essential integrations and extensive functionalities**.
+---
 
-- A library of over **200** professional dashboard UI components and elements.
-- Five distinctive dashboard variations, catering to diverse use-cases.
-- A comprehensive set of essential dashboard and admin pages.
-- More than **45** **Next.js** files, ready for use.
-- Styling facilitated by **Tailwind CSS** files.
-- A design that resonates premium quality and high aesthetics.
-- A handy UI kit with assets.
-- Over ten web apps complete with examples.
-- Support for both **dark mode** and **light mode**.
-- Essential integrations including - Authentication (**NextAuth**), Database (**Postgres** with **Prisma**), and Search (**Algolia**).
-- Detailed and user-friendly documentation.
-- Customizable plugins and add-ons.
-- **TypeScript** compatibility.
-- Plus, much more!
+## Roles de usuario
 
-All these features and more make **NextAdmin** a robust, well-rounded solution for all your dashboard development needs.
+| Rol | Permisos |
+|---|---|
+| ADMIN | Acceso total: publicar, gestionar autores, categorías, suscriptores |
+| EDITOR | Crear y editar sus propios artículos, enviar a revisión |
+| MEMBER | Leer artículos publicados, comentar, suscribirse al newsletter |
 
-## Update Logs
+---
 
-### Version 1.2.2 - [December 01, 2025]
-- Updated to Next.js 16
-- Updated dependencies.
+## Deploy en Vercel
 
-### Version 1.2.1 - [Mar 20, 2025]
-- Fix Peer dependency issues and NextConfig warning.
-- Updated apexcharts and react-apexhcarts to the latest version.
+Consulta la sección de [Deploy](#deploy) más abajo o sigue la [guía oficial de Next.js en Vercel](https://vercel.com/docs/frameworks/nextjs).
 
-### Version 1.2.0 - Major Upgrade and UI Improvements - [Jan 27, 2025]
+1. Conecta el repositorio en [vercel.com](https://vercel.com)
+2. Agrega las variables de entorno en **Settings → Environment Variables**
+3. Ejecuta `npm run db:migrate` una vez en tu base de datos de producción
+4. Vercel desplegará automáticamente en cada push a `main`
 
-- Upgraded to Next.js v15 and updated dependencies
-- API integration with loading skeleton for tables and charts.
-- Improved code structure for better readability.
-- Rebuilt components like dropdown, sidebar, and all ui-elements using accessibility practices.
-- Using search-params to store dropdown selection and refetch data.
-- Semantic markups, better separation of concerns and more.
+---
 
-### Version 1.1.0
-- Updated Dependencies
-- Removed Unused Integrations
-- Optimized App
+## Licencia
 
-### Version 1.0
-- Initial Release - [May 13, 2024]
+MIT
