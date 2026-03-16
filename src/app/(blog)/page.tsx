@@ -8,6 +8,7 @@ import {
   getPosts,
 } from "@/services/posts.service";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 export const revalidate = 3600; // ISR — revalida cada hora
@@ -77,17 +78,30 @@ export default async function BlogHomePage() {
             href={`/blog/${featuredPost.slug}`}
             className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800 md:flex-row"
           >
-            <div
-              className="flex h-48 items-center justify-center md:h-auto md:w-2/5"
-              style={{
-                background: featuredPost.category.color
-                  ? `linear-gradient(135deg, ${featuredPost.category.color}25, ${featuredPost.category.color}10)`
-                  : "linear-gradient(135deg, #FFF7F0, #FFEDE0)",
-              }}
-            >
-              <span className="text-6xl font-black opacity-10 dark:opacity-5">
-                G
-              </span>
+            <div className="relative h-48 overflow-hidden md:h-auto md:w-2/5">
+              {featuredPost.coverImage ? (
+                <Image
+                  src={featuredPost.coverImage}
+                  alt={featuredPost.title}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              ) : (
+                <div
+                  className="flex h-full items-center justify-center"
+                  style={{
+                    background: featuredPost.category.color
+                      ? `linear-gradient(135deg, ${featuredPost.category.color}25, ${featuredPost.category.color}10)`
+                      : "linear-gradient(135deg, #FFF7F0, #FFEDE0)",
+                  }}
+                >
+                  <span className="text-6xl font-black opacity-10 dark:opacity-5">
+                    G
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex flex-1 flex-col justify-center p-8">
               <div className="mb-3 flex items-center gap-3">

@@ -168,6 +168,26 @@ export function Authentication(props: PropsType) {
   );
 }
 
+export function BellIcon(props: PropsType) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      {...props}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 1.25A6.75 6.75 0 005.25 8v.987c0 .767-.2 1.52-.578 2.188L3.6 13.214c-.734 1.282-.09 2.926 1.322 3.329A25.85 25.85 0 0012 17.5c2.44 0 4.824-.35 7.078-1.013l.002-.001c1.411-.403 2.055-2.047 1.32-3.33l-1.071-1.99a4.25 4.25 0 01-.579-2.18V8A6.75 6.75 0 0012 1.25zM6.75 8a5.25 5.25 0 0110.5 0v.987c0 1.005.263 1.994.759 2.872l1.072 1.99c.38.665.047 1.519-.687 1.734A24.35 24.35 0 0112 16c-2.332 0-4.614-.335-6.794-.983-.734-.215-1.067-1.069-.687-1.733l1.072-1.99A5.75 5.75 0 006.75 8.987V8zM9.5 19.5a.75.75 0 000 1.5h5a.75.75 0 000-1.5h-5z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function ArrowLeftIcon(props: PropsType) {
   return (
     <svg

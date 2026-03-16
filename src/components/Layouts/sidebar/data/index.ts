@@ -28,6 +28,12 @@ export const NAV_DATA: NavSection[] = [
         items: [],
       },
       {
+        title: "Notificaciones",
+        url: "/admin/notificaciones",
+        icon: Icons.BellIcon,
+        items: [],
+      },
+      {
         title: "Autores",
         url: "/admin/autores",
         icon: Icons.User,
