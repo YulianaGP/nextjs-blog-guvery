@@ -3,6 +3,8 @@ import { SubscriberStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://blog.guvery.com";
 
