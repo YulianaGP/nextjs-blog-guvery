@@ -1,6 +1,29 @@
 # Guvery Blog — Panel de Administración
 
-Plataforma de blog con panel de administración construida con **Next.js 15**, **TypeScript** y **PostgreSQL**. Permite a los autores crear y gestionar artículos con un flujo editorial completo, y a los lectores explorar, buscar y comentar el contenido publicado.
+> Plataforma de blog con panel de administración construida con **Next.js 15**, **TypeScript** y **PostgreSQL**. Permite a los autores crear y gestionar artículos con un flujo editorial completo, y a los lectores explorar, buscar y comentar el contenido publicado.
+
+![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38bdf8?logo=tailwindcss)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-00e5bf?logo=postgresql)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## Tabla de contenidos
+
+- [Stack tecnológico](#stack-tecnológico)
+- [Funcionalidades](#funcionalidades)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Modelos de base de datos](#modelos-de-base-de-datos)
+- [Requisitos previos](#requisitos-previos)
+- [Instalación local](#instalación-local)
+- [Variables de entorno](#variables-de-entorno)
+- [Scripts disponibles](#scripts-disponibles)
+- [Flujo editorial](#flujo-editorial)
+- [Roles de usuario](#roles-de-usuario)
+- [Deploy en Vercel](#deploy-en-vercel)
+- [Licencia](#licencia)
 
 ---
 
@@ -46,7 +69,7 @@ Plataforma de blog con panel de administración construida con **Next.js 15**, *
 - Control de acceso por roles: ADMIN, EDITOR, MEMBER
 - Middleware de protección de rutas `/admin/*`
 - Validación de datos con Zod en todas las acciones del servidor
-- Sanitización de contenido HTML
+- Sanitización de contenido HTML con `sanitize-html`
 - Rate limiting en comentarios
 
 ---
@@ -66,8 +89,8 @@ src/
 │   │   └── categoria/    # Artículos por categoría
 │   ├── admin/login/      # Login público
 │   └── api/              # API routes (auth, search, newsletter, export)
-├── actions/              # Server Actions (CRUD)
-├── services/             # Queries a base de datos con caché
+├── actions/              # Server Actions (CRUD con validación Zod)
+├── services/             # Queries a base de datos
 ├── components/
 │   ├── admin/            # Formularios y componentes del panel
 │   └── blog/             # Componentes del blog público
@@ -78,13 +101,15 @@ src/
 
 ## Modelos de base de datos
 
-- **User** — Usuarios con roles (ADMIN, EDITOR) y tipos de cuenta (STAFF, MEMBER)
-- **Post** — Artículos con estados, SEO, tiempo de lectura y vistas
-- **Category** — Categorías con slug y color
-- **Tag** — Etiquetas de artículos
-- **Comment** — Comentarios con estado de aprobación
-- **Subscriber** — Suscriptores del newsletter con doble opt-in
-- **Notification** — Notificaciones del sistema para el flujo editorial
+| Modelo | Descripción |
+|---|---|
+| **User** | Usuarios con roles (ADMIN, EDITOR) y tipos de cuenta (STAFF, MEMBER) |
+| **Post** | Artículos con estados, SEO, tiempo de lectura y vistas |
+| **Category** | Categorías con slug y color |
+| **Tag** | Etiquetas de artículos |
+| **Comment** | Comentarios con estado de aprobación |
+| **Subscriber** | Suscriptores del newsletter con doble opt-in |
+| **Notification** | Notificaciones del sistema para el flujo editorial |
 
 ---
 
@@ -92,8 +117,8 @@ src/
 
 - Node.js 18+
 - PostgreSQL (o cuenta en [Neon](https://neon.tech))
-- Cuenta en [Resend](https://resend.com) (para emails)
-- Cuenta en Google Cloud Console (para OAuth)
+- Cuenta en [Resend](https://resend.com) (para emails del newsletter)
+- Cuenta en [Google Cloud Console](https://console.cloud.google.com) (para OAuth)
 
 ---
 
@@ -109,7 +134,7 @@ npm install
 
 # 3. Configurar variables de entorno
 cp .env.example .env.local
-# Editar .env.local con tus credenciales
+# Editar .env.local con tus credenciales reales
 
 # 4. Ejecutar migraciones
 npm run db:migrate
@@ -127,22 +152,22 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 ## Variables de entorno
 
-Crea un archivo `.env.local` con las siguientes variables:
+Copia `.env.example` a `.env.local` y completa los valores:
 
 ```env
 # Base de datos (Neon PostgreSQL)
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
+DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require&pgbouncer=true"
+DIRECT_URL="postgresql://user:password@host/dbname?sslmode=require"
 
-# NextAuth
+# NextAuth — genera el secret con: openssl rand -hex 32
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="genera-con: openssl rand -hex 32"
+NEXTAUTH_SECRET=""
 
-# Google OAuth (opcional)
+# Google OAuth — configura en console.cloud.google.com
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 
-# Resend (para newsletter)
+# Resend — para el newsletter
 RESEND_API_KEY=""
 
 # URL pública del sitio
@@ -150,22 +175,22 @@ NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 NEXT_PUBLIC_SITE_URL="http://localhost:3000"
 ```
 
-> El archivo `.env.local` está en `.gitignore` y nunca debe subirse al repositorio.
+> **Importante:** `.env.local` está en `.gitignore` y nunca debe subirse al repositorio.
 
 ---
 
 ## Scripts disponibles
 
 ```bash
-npm run dev          # Servidor de desarrollo
+npm run dev          # Servidor de desarrollo en localhost:3000
 npm run build        # Build de producción
-npm run start        # Iniciar en producción
+npm run start        # Iniciar servidor en producción
 npm run lint         # Linter ESLint
 
 npm run db:migrate   # Ejecutar migraciones de Prisma
-npm run db:push      # Sync schema sin migraciones
+npm run db:push      # Sincronizar schema sin generar migración
 npm run db:seed      # Poblar base de datos con datos iniciales
-npm run db:studio    # Abrir Prisma Studio (UI de base de datos)
+npm run db:studio    # Abrir Prisma Studio (GUI de base de datos)
 npm run db:generate  # Regenerar Prisma Client
 ```
 
@@ -189,23 +214,59 @@ DRAFT → REVIEW → PUBLISHED → ARCHIVED
 
 | Rol | Permisos |
 |---|---|
-| ADMIN | Acceso total: publicar, gestionar autores, categorías, suscriptores |
-| EDITOR | Crear y editar sus propios artículos, enviar a revisión |
-| MEMBER | Leer artículos publicados, comentar, suscribirse al newsletter |
+| **ADMIN** | Acceso total: publicar artículos, gestionar autores, categorías y suscriptores |
+| **EDITOR** | Crear y editar sus propios artículos, enviar a revisión |
+| **MEMBER** | Leer artículos publicados, comentar, suscribirse al newsletter |
 
 ---
 
 ## Deploy en Vercel
 
-Consulta la sección de [Deploy](#deploy) más abajo o sigue la [guía oficial de Next.js en Vercel](https://vercel.com/docs/frameworks/nextjs).
+### 1. Preparar el repositorio
 
-1. Conecta el repositorio en [vercel.com](https://vercel.com)
-2. Agrega las variables de entorno en **Settings → Environment Variables**
-3. Ejecuta `npm run db:migrate` una vez en tu base de datos de producción
-4. Vercel desplegará automáticamente en cada push a `main`
+Asegúrate de que el build local funcione sin errores:
+
+```bash
+npm run build
+```
+
+### 2. Conectar con Vercel
+
+1. Ve a [vercel.com](https://vercel.com) e inicia sesión
+2. Haz clic en **Add New Project** e importa tu repositorio de GitHub
+3. Vercel detectará automáticamente que es un proyecto Next.js
+
+### 3. Configurar variables de entorno
+
+En **Settings → Environment Variables**, agrega todas las variables de `.env.example` con sus valores de producción:
+
+| Variable | Valor en producción |
+|---|---|
+| `DATABASE_URL` | Tu URL de Neon con `pgbouncer=true` |
+| `DIRECT_URL` | Tu URL directa de Neon |
+| `NEXTAUTH_URL` | `https://tu-app.vercel.app` |
+| `NEXTAUTH_SECRET` | Genera con `openssl rand -hex 32` |
+| `GOOGLE_CLIENT_ID` | Tu Client ID de Google |
+| `GOOGLE_CLIENT_SECRET` | Tu Client Secret de Google |
+| `RESEND_API_KEY` | Tu API Key de Resend |
+| `NEXT_PUBLIC_BASE_URL` | `https://tu-app.vercel.app` |
+| `NEXT_PUBLIC_SITE_URL` | `https://tu-app.vercel.app` |
+
+### 4. Configurar Google OAuth para producción
+
+En [Google Cloud Console](https://console.cloud.google.com):
+1. Ve a **APIs & Services → Credentials**
+2. Edita tu OAuth 2.0 Client
+3. Agrega en **Authorized redirect URIs**: `https://tu-app.vercel.app/api/auth/callback/google`
+
+### 5. Desplegar
+
+Haz click en **Deploy**. Vercel desplegará automáticamente en cada push a `main`.
+
+> **Nota:** No necesitas ejecutar `db:migrate` en Vercel — las migraciones deben ejecutarse desde tu máquina local apuntando a la base de datos de producción.
 
 ---
 
 ## Licencia
 
-MIT
+MIT — libre para uso personal y comercial.

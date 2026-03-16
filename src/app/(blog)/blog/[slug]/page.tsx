@@ -172,6 +172,7 @@ export default async function ArticlePage({ params }: Props) {
                     src={post.author.image}
                     alt={post.author.name ?? "Autor"}
                     className="h-9 w-9 rounded-full object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-[#E86C2C] dark:bg-orange-900/20">
@@ -212,6 +213,7 @@ export default async function ArticlePage({ params }: Props) {
                   src={post.coverImage}
                   alt={post.title}
                   className="h-auto w-full object-cover"
+                  loading="lazy"
                 />
               </div>
             )}

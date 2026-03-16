@@ -50,6 +50,7 @@ export function ArticleCard({ post, variant = "default" }: Props) {
             src={post.coverImage}
             alt={post.title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
           />
         ) : (
           <div

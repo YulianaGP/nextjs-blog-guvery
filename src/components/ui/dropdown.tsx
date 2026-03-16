@@ -2,7 +2,6 @@
 
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { cn } from "@/lib/utils";
-import { SetStateActionType } from "@/types/set-state-action-type";
 import {
   createContext,
   type PropsWithChildren,
@@ -30,7 +29,7 @@ function useDropdownContext() {
 type DropdownProps = {
   children: React.ReactNode;
   isOpen: boolean;
-  setIsOpen: SetStateActionType<boolean>;
+  setIsOpen: (value: boolean) => void;
 };
 
 export function Dropdown({ children, isOpen, setIsOpen }: DropdownProps) {

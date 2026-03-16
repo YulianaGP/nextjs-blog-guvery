@@ -14,7 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BellIcon } from "./icons";
 
 type NotificationItem = Awaited<ReturnType<typeof getUserNotifications>>[number];
@@ -42,17 +42,16 @@ export function Notification() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  async function fetchNotifications() {
+  const fetchNotifications = useCallback(async () => {
     const data = await getUserNotifications();
     setNotifications(data);
-  }
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30_000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchNotifications]);
 
   async function handleOpen(open: boolean) {
     setIsOpen(open);

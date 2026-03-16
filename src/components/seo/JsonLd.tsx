@@ -3,8 +3,7 @@ import type { PostDetail } from "@/services/posts.service";
 // ── Generic JSON-LD renderer ──────────────────────────────────────────────────
 
 type Props = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 };
 
 /** Server component — renders a <script type="application/ld+json"> block. */
