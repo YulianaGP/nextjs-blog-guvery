@@ -94,3 +94,42 @@ export async function updateProfile(
 
   return { success: true, message: "Perfil actualizado correctamente.", updatedName: name };
 }
+
+/**
+ * Actualiza la foto de perfil del usuario autenticado.
+ * Recibe la URL de Cloudinary desde el componente cliente.
+ */
+export async function updateProfileImage(imageUrl: string): Promise<ProfileActionState> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return { success: false, message: "No autorizado." };
+  }
+
+  const parsed = z
+    .string()
+    .url("URL de imagen no válida.")
+    .refine((url) => {
+      try {
+        const { hostname } = new URL(url);
+        return hostname === "res.cloudinary.com" || hostname.endsWith(".cloudinary.com");
+      } catch {
+        return false;
+      }
+    }, "Solo se permiten imágenes de Cloudinary.")
+    .safeParse(imageUrl);
+
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? "URL inválida." };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { image: parsed.data },
+  });
+
+  revalidatePath("/admin/profile");
+  revalidatePath("/admin/pages/settings");
+
+  return { success: true, message: "Foto de perfil actualizada." };
+}

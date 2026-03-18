@@ -50,3 +50,33 @@ export async function getCategoriesWithTotalCount() {
 export type CategoryWithTotalCount = Awaited<
   ReturnType<typeof getCategoriesWithTotalCount>
 >[number];
+
+export const CATEGORIES_PER_PAGE = 10;
+
+/**
+ * Admin: categorías paginadas con conteo total de posts (cualquier estado).
+ */
+export async function getCategoriesWithTotalCountPaginated({
+  page = 1,
+  pageSize = CATEGORIES_PER_PAGE,
+}: {
+  page?: number;
+  pageSize?: number;
+} = {}) {
+  const [categories, total] = await Promise.all([
+    prisma.category.findMany({
+      include: { _count: { select: { posts: true } } },
+      orderBy: { name: "asc" },
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
+    prisma.category.count(),
+  ]);
+
+  return {
+    categories,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+    currentPage: page,
+  };
+}

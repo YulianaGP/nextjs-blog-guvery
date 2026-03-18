@@ -3,18 +3,35 @@
 import { createNotifications } from "@/actions/notification.actions";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { viewRatelimit } from "@/lib/redis";
 import { incrementPostViews } from "@/services/posts.service";
 import { PostStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 // ── Incrementar vistas ────────────────────────────────────────────────────────
 
-/** Incrementa el contador de vistas. Llamado desde ViewIncrementer al montar la página. */
+/**
+ * Incrementa el contador de vistas con rate-limiting via Upstash Redis.
+ * Permite máximo 1 incremento por IP+slug cada hora para evitar spam.
+ * Llamado desde ViewIncrementer al montar la página del artículo.
+ */
 export async function incrementViews(slug: string) {
   try {
+    const headersList = await headers();
+    const ip =
+      headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      headersList.get("x-real-ip") ??
+      "anonymous";
+
+    const identifier = `${ip}:${slug}`;
+    const { success } = await viewRatelimit.limit(identifier);
+
+    if (!success) return; // Ya contó esta visita en la última hora
+
     await incrementPostViews(slug);
   } catch {
     // Silencioso — un fallo en el conteo no debe afectar al lector

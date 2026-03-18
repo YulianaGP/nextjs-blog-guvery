@@ -12,22 +12,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCategoriesWithTotalCount } from "@/services/categories.service";
+import { Pagination } from "@/components/blog/Pagination";
+import {
+  getCategoriesWithTotalCountPaginated,
+  CATEGORIES_PER_PAGE,
+} from "@/services/categories.service";
 import { CreateCategoryForm } from "./CreateCategoryForm";
 
 export const metadata = {
   title: "Categorías | Admin",
 };
 
-export default async function CategoriasPage() {
-  const categories = await getCategoriesWithTotalCount();
+type Props = {
+  searchParams: Promise<{ page?: string }>;
+};
+
+export default async function CategoriasPage({ searchParams }: Props) {
+  const { page: pageParam = "1" } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam, 10) || 1);
+
+  const { categories, total, totalPages, currentPage } =
+    await getCategoriesWithTotalCountPaginated({ page, pageSize: CATEGORIES_PER_PAGE });
 
   return (
     <div className="space-y-6">
       {/* ── Encabezado ──────────────────────────────────────────────────── */}
       <div>
         <h1 className="text-2xl font-bold text-dark dark:text-white">Categorías</h1>
-        <p className="mt-1 text-sm text-gray-500">{categories.length} categorías en total</p>
+        <p className="mt-1 text-sm text-gray-500">{total} categorías en total</p>
       </div>
 
       {/* ── Formulario de creación (Client Component) ────────────────────── */}
@@ -105,6 +117,15 @@ export default async function CategoriasPage() {
             )}
           </TableBody>
         </Table>
+
+        {/* ── Paginación ── */}
+        <div className="border-t border-gray-100 dark:border-gray-700">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            basePath="/admin/categorias"
+          />
+        </div>
       </div>
     </div>
   );

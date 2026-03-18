@@ -5,13 +5,18 @@ type Props = {
   totalPages: number;
   /** Base de la URL, ej: "/blog" o "/categoria/amazon" */
   basePath: string;
+  /** Parámetros extra que se preservan en cada página, ej: { q: "redis" } */
+  extraParams?: Record<string, string>;
 };
 
-function pageHref(basePath: string, page: number) {
-  return page === 1 ? basePath : `${basePath}?page=${page}`;
+function pageHref(basePath: string, page: number, extraParams?: Record<string, string>) {
+  const params = new URLSearchParams(extraParams);
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
 }
 
-export function Pagination({ currentPage, totalPages, basePath }: Props) {
+export function Pagination({ currentPage, totalPages, basePath, extraParams }: Props) {
   if (totalPages <= 1) return null;
 
   // Genera el rango de páginas a mostrar (máx. 5 números)
@@ -38,7 +43,7 @@ export function Pagination({ currentPage, totalPages, basePath }: Props) {
       {/* Anterior */}
       {currentPage > 1 ? (
         <Link
-          href={pageHref(basePath, currentPage - 1)}
+          href={pageHref(basePath, currentPage - 1, extraParams)}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-sm text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
           aria-label="Página anterior"
         >
@@ -62,7 +67,7 @@ export function Pagination({ currentPage, totalPages, basePath }: Props) {
         ) : (
           <Link
             key={page}
-            href={pageHref(basePath, page)}
+            href={pageHref(basePath, page, extraParams)}
             className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
               page === currentPage
                 ? "bg-[#E86C2C] text-white"
@@ -78,7 +83,7 @@ export function Pagination({ currentPage, totalPages, basePath }: Props) {
       {/* Siguiente */}
       {currentPage < totalPages ? (
         <Link
-          href={pageHref(basePath, currentPage + 1)}
+          href={pageHref(basePath, currentPage + 1, extraParams)}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-sm text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
           aria-label="Página siguiente"
         >

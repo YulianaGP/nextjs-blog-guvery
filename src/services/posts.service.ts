@@ -216,6 +216,65 @@ export async function getAuthorPosts(authorId: string) {
   });
 }
 
+export const ADMIN_POSTS_PER_PAGE = 10;
+
+/**
+ * Admin: posts paginados con filtro opcional por texto (título o slug).
+ * Soporta tanto rol ADMIN (todos los posts) como EDITOR (solo los suyos).
+ */
+export async function getAdminPostsPaginated({
+  page = 1,
+  pageSize = ADMIN_POSTS_PER_PAGE,
+  q,
+  authorId,
+}: {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  authorId?: string;
+}) {
+  const where: Prisma.PostWhereInput = {
+    ...(authorId && { authorId }),
+    ...(q && {
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { slug: { contains: q, mode: "insensitive" } },
+      ],
+    }),
+  };
+
+  const select = {
+    id: true,
+    title: true,
+    slug: true,
+    status: true,
+    featured: true,
+    views: true,
+    publishedAt: true,
+    updatedAt: true,
+    category: { select: { name: true } },
+    author: { select: { name: true } },
+  };
+
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      select,
+      orderBy: { updatedAt: "desc" },
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
+    prisma.post.count({ where }),
+  ]);
+
+  return {
+    posts,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+    currentPage: page,
+  };
+}
+
 /**
  * Admin: post completo por id — incluye content y tags para el formulario de edición.
  * Retorna null si no existe.

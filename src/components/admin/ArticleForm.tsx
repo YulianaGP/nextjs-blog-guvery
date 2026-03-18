@@ -9,6 +9,7 @@ import type { Category } from "@prisma/client";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { TiptapEditor } from "./TiptapEditor";
+import { CloudinaryUploader } from "./CloudinaryUploader";
 
 type PostForEdit = {
   id: string;
@@ -237,14 +238,11 @@ export function ArticleForm({ post, categories, role }: Props) {
             <h3 className="mb-3 text-sm font-semibold text-dark dark:text-white">
               Imagen de portada
             </h3>
-            <input
+            <CloudinaryUploader
               name="coverImage"
-              type="url"
-              defaultValue={post?.coverImage ?? ""}
-              placeholder="https://ejemplo.com/imagen.jpg"
-              className="w-full rounded-lg border border-stroke bg-white px-3 py-2 text-sm text-dark outline-none focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+              defaultValue={post?.coverImage}
+              label="Subir imagen de portada"
             />
-            <p className="mt-1 text-xs text-gray-500">URL de la imagen (Cloudinary, etc.)</p>
           </div>
 
           <div className="flex flex-col gap-3">

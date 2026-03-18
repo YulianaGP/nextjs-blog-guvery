@@ -11,8 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Pagination } from "@/components/blog/Pagination";
 import { authOptions } from "@/lib/auth";
-import { getAdminPosts, getAuthorPosts } from "@/services/posts.service";
+import {
+  getAdminPostsPaginated,
+  ADMIN_POSTS_PER_PAGE,
+} from "@/services/posts.service";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 
@@ -21,28 +25,26 @@ export const metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 };
 
 export default async function ArticulosPage({ searchParams }: Props) {
-  const { q = "" } = await searchParams;
-  const query = q.trim().toLowerCase();
+  const { q = "", page: pageParam = "1" } = await searchParams;
+  const query = q.trim();
+  const page = Math.max(1, parseInt(pageParam, 10) || 1);
 
   const session = await getServerSession(authOptions);
   const isAdmin = session?.user?.role === "ADMIN";
 
-  // Admin ve todos los posts; Editor ve solo los suyos
-  const allPosts = isAdmin
-    ? await getAdminPosts()
-    : await getAuthorPosts(session?.user?.id ?? "");
+  const { posts, total, totalPages, currentPage } =
+    await getAdminPostsPaginated({
+      page,
+      pageSize: ADMIN_POSTS_PER_PAGE,
+      q: query || undefined,
+      authorId: isAdmin ? undefined : (session?.user?.id ?? ""),
+    });
 
-  const posts = query
-    ? allPosts.filter(
-        (p) =>
-          p.title.toLowerCase().includes(query) ||
-          p.slug.toLowerCase().includes(query),
-      )
-    : allPosts;
+  const extraParams = query ? { q: query } : undefined;
 
   return (
     <div className="space-y-6">
@@ -52,8 +54,8 @@ export default async function ArticulosPage({ searchParams }: Props) {
           <h1 className="text-2xl font-bold text-dark dark:text-white">Artículos</h1>
           <p className="mt-1 text-sm text-gray-500">
             {query
-              ? `${posts.length} resultado${posts.length !== 1 ? "s" : ""} para "${q}"`
-              : `${posts.length} artículos en total`}
+              ? `${total} resultado${total !== 1 ? "s" : ""} para "${q}"`
+              : `${total} artículos en total`}
           </p>
         </div>
 
@@ -165,6 +167,16 @@ export default async function ArticulosPage({ searchParams }: Props) {
             )}
           </TableBody>
         </Table>
+
+        {/* ── Paginación ── */}
+        <div className="border-t border-gray-100 dark:border-gray-700">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            basePath="/admin/articulos"
+            extraParams={extraParams}
+          />
+        </div>
       </div>
     </div>
   );

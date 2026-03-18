@@ -22,28 +22,6 @@ export default async function BlogLayout({ children }: PropsWithChildren) {
             </span>
           </Link>
 
-          {/* Nav */}
-          <nav className="hidden items-center gap-6 sm:flex">
-            <Link
-              href="/"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-            >
-              Inicio
-            </Link>
-            <Link
-              href="/categoria/guias-de-compra"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-            >
-              Guías
-            </Link>
-            <Link
-              href="/categoria/amazon"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-            >
-              Amazon
-            </Link>
-          </nav>
-
           {/* Buscador compacto */}
           <div className="hidden flex-1 max-w-xs sm:block">
             <Suspense>
