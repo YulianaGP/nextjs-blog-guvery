@@ -1,6 +1,8 @@
-# Guvery Blog — Panel de Administración
+# Guvery Blog — Admin Dashboard
 
-> Plataforma de blog con panel de administración construida con **Next.js 15**, **TypeScript** y **PostgreSQL**. Permite a los autores crear y gestionar artículos con un flujo editorial completo, y a los lectores explorar, buscar y comentar el contenido publicado.
+> Full-stack blog platform with an admin panel built with **Next.js 15**, **TypeScript**, and **PostgreSQL**. Features a complete editorial workflow, role-based authentication, rich text editor, newsletter system, and dark mode. Built for Spanish-speaking users.
+
+[![🌐 Live Demo](https://img.shields.io/badge/🌐_Live_Demo-nextjs--blog--guvery.vercel.app-000?style=for-the-badge&logo=vercel)](https://nextjs-blog-guvery.vercel.app)
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
@@ -10,263 +12,286 @@
 
 ---
 
-## Tabla de contenidos
+## Preview
 
-- [Stack tecnológico](#stack-tecnológico)
-- [Funcionalidades](#funcionalidades)
-- [Estructura del proyecto](#estructura-del-proyecto)
-- [Modelos de base de datos](#modelos-de-base-de-datos)
-- [Requisitos previos](#requisitos-previos)
-- [Instalación local](#instalación-local)
-- [Variables de entorno](#variables-de-entorno)
-- [Scripts disponibles](#scripts-disponibles)
-- [Flujo editorial](#flujo-editorial)
-- [Roles de usuario](#roles-de-usuario)
-- [Deploy en Vercel](#deploy-en-vercel)
-- [Licencia](#licencia)
+![Guvery Blog — public blog view](./docs/preview.jpeg)
 
 ---
 
-## Stack tecnológico
+## Why this project?
 
-| Capa | Tecnología |
+Most Next.js tutorials stop at basic CRUD. This project goes further:
+
+- **Real editorial workflow** — Draft → Review → Published → Archived, with real-time notifications between roles
+- **Role-based access control** — three distinct roles (ADMIN, EDITOR, MEMBER) with route protection middleware
+- **Production-grade security** — comment rate limiting (5/hour per user), server-side HTML sanitization with `sanitize-html`, Zod validation on all Server Actions
+- **Full newsletter system** — double opt-in subscription flow with email confirmation via Resend
+
+---
+
+## Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Database Models](#database-models)
+- [Prerequisites](#prerequisites)
+- [Local Setup](#local-setup)
+- [Environment Variables](#environment-variables)
+- [Available Scripts](#available-scripts)
+- [Editorial Workflow](#editorial-workflow)
+- [User Roles](#user-roles)
+- [Deploy to Vercel](#deploy-to-vercel)
+- [License](#license)
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
 | Framework | Next.js 15 (App Router) |
-| Lenguaje | TypeScript 5 |
-| Estilos | Tailwind CSS |
-| Base de datos | PostgreSQL (Neon) via Prisma ORM |
-| Autenticación | NextAuth v4 (Credentials + Google OAuth) |
-| Editor de texto | Tiptap |
+| Language | TypeScript 5 |
+| Styles | Tailwind CSS |
+| Database | PostgreSQL (Neon) via Prisma ORM |
+| Authentication | NextAuth v4 (Credentials + Google OAuth) |
+| Rich Text Editor | Tiptap |
 | Email | Resend |
-| Validación | Zod |
+| Validation | Zod |
+| Rate Limiting | Upstash Redis |
 | Deploy | Vercel |
 
 ---
 
-## Funcionalidades
+## Features
 
-### Blog público
-- Listado paginado de artículos con filtro por categoría
-- Página de detalle con tabla de contenidos, tiempo de lectura y contador de vistas
-- Artículos relacionados y populares
-- Búsqueda de texto completo
-- Sistema de comentarios con rate limiting (5 comentarios/hora por usuario)
-- Newsletter con doble opt-in por email
-- Perfiles de autor
-- Compartir en redes sociales
+### Public Blog
+- Paginated article listing with category filters
+- Article detail with table of contents, reading time, and view counter
+- Related and popular articles
+- Full-text search
+- Comment system with rate limiting (5 comments/hour per user)
+- Newsletter with double opt-in via email
+- Author profiles
+- Social media sharing
 
-### Panel de administración
-- Dashboard con métricas: artículos, vistas, suscriptores
-- Gestión de artículos con editor enriquecido (Tiptap)
-- Flujo editorial: Borrador → Revisión → Publicado → Archivado
-- Sistema de notificaciones en tiempo real entre autores y admins
-- Gestión de autores y categorías
-- Exportación de suscriptores a CSV
-- Configuración de perfil y foto de usuario
-- Soporte para modo oscuro
+### Admin Panel
+- Dashboard with key metrics: articles, views, subscribers
+- Article management with rich text editor (Tiptap)
+- Editorial workflow: Draft → Review → Published → Archived
+- Real-time notification system between authors and admins
+- Author and category management
+- Subscriber CSV export
+- Profile settings and avatar upload
+- Dark mode support
 
-### Seguridad y acceso
-- Control de acceso por roles: ADMIN, EDITOR, MEMBER
-- Middleware de protección de rutas `/admin/*`
-- Validación de datos con Zod en todas las acciones del servidor
-- Sanitización de contenido HTML con `sanitize-html`
-- Rate limiting en comentarios
+### Security & Access
+- Role-based access control: ADMIN, EDITOR, MEMBER
+- Route protection middleware for `/admin/*`
+- Zod validation on all Server Actions
+- Server-side HTML sanitization with `sanitize-html`
+- Rate limiting on comments and article views (Upstash Redis)
 
 ---
 
-## Estructura del proyecto
+## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── (admin)/          # Panel de administración (protegido)
-│   │   ├── admin/        # Dashboard, artículos, autores, categorías
-│   │   └── pages/        # Configuración y perfil
-│   ├── (blog)/           # Blog público
-│   │   ├── blog/         # Listado y detalle de artículos
-│   │   ├── autor/        # Perfil de autor
-│   │   ├── buscar/       # Búsqueda
-│   │   └── categoria/    # Artículos por categoría
-│   ├── admin/login/      # Login público
+│   ├── (admin)/          # Admin panel (protected routes)
+│   │   ├── admin/        # Dashboard, articles, authors, categories
+│   │   └── pages/        # Settings and profile
+│   ├── (blog)/           # Public blog
+│   │   ├── blog/         # Article listing and detail
+│   │   ├── autor/        # Author profile
+│   │   ├── buscar/       # Search
+│   │   └── categoria/    # Articles by category
+│   ├── admin/login/      # Public login page
 │   └── api/              # API routes (auth, search, newsletter, export)
-├── actions/              # Server Actions (CRUD con validación Zod)
-├── services/             # Queries a base de datos
+├── actions/              # Server Actions (CRUD with Zod validation)
+├── services/             # Database queries
 ├── components/
-│   ├── admin/            # Formularios y componentes del panel
-│   └── blog/             # Componentes del blog público
-└── lib/                  # Auth, Prisma, constantes, utilidades
+│   ├── admin/            # Admin panel forms and components
+│   └── blog/             # Public blog components
+└── lib/                  # Auth, Prisma client, constants, utilities
 ```
 
 ---
 
-## Modelos de base de datos
+## Database Models
 
-| Modelo | Descripción |
+| Model | Description |
 |---|---|
-| **User** | Usuarios con roles (ADMIN, EDITOR) y tipos de cuenta (STAFF, MEMBER) |
-| **Post** | Artículos con estados, SEO, tiempo de lectura y vistas |
-| **Category** | Categorías con slug y color |
-| **Tag** | Etiquetas de artículos |
-| **Comment** | Comentarios con estado de aprobación |
-| **Subscriber** | Suscriptores del newsletter con doble opt-in |
-| **Notification** | Notificaciones del sistema para el flujo editorial |
+| **User** | Users with roles (ADMIN, EDITOR) and account types (STAFF, MEMBER) |
+| **Post** | Articles with states, SEO metadata, reading time and view count |
+| **Category** | Categories with slug and color |
+| **Tag** | Article tags |
+| **Comment** | Comments with approval state |
+| **Subscriber** | Newsletter subscribers with double opt-in |
+| **Notification** | System notifications for the editorial workflow |
 
 ---
 
-## Requisitos previos
+## Prerequisites
 
 - Node.js 18+
-- PostgreSQL (o cuenta en [Neon](https://neon.tech))
-- Cuenta en [Resend](https://resend.com) (para emails del newsletter)
-- Cuenta en [Google Cloud Console](https://console.cloud.google.com) (para OAuth)
+- PostgreSQL (or a [Neon](https://neon.tech) account)
+- [Resend](https://resend.com) account (for newsletter emails)
+- [Upstash](https://upstash.com) account (for Redis rate limiting)
+- [Google Cloud Console](https://console.cloud.google.com) project (for Google OAuth)
 
 ---
 
-## Instalación local
+## Local Setup
 
 ```bash
-# 1. Clonar el repositorio
-git clone <url-del-repo>
-cd nextjs-admin-dashboard
+# 1. Clone the repository
+git clone https://github.com/YulianaGP/nextjs-blog-guvery.git
+cd nextjs-blog-guvery
 
-# 2. Instalar dependencias
+# 2. Install dependencies
 npm install
 
-# 3. Configurar variables de entorno
+# 3. Set up environment variables
 cp .env.example .env.local
-# Editar .env.local con tus credenciales reales
+# Edit .env.local with your actual credentials
 
-# 4. Ejecutar migraciones
+# 4. Run database migrations
 npm run db:migrate
 
-# 5. (Opcional) Cargar datos de prueba
+# 5. (Optional) Seed the database with sample data
 npm run db:seed
 
-# 6. Iniciar servidor de desarrollo
+# 6. Start the development server
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Variables de entorno
+## Environment Variables
 
-Copia `.env.example` a `.env.local` y completa los valores:
+Copy `.env.example` to `.env.local` and fill in the values:
 
 ```env
-# Base de datos (Neon PostgreSQL)
+# Database (Neon PostgreSQL)
 DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require&pgbouncer=true"
 DIRECT_URL="postgresql://user:password@host/dbname?sslmode=require"
 
-# NextAuth — genera el secret con: openssl rand -hex 32
+# NextAuth — generate secret with: openssl rand -hex 32
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET=""
 
-# Google OAuth — configura en console.cloud.google.com
+# Google OAuth — configure at console.cloud.google.com
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 
-# Resend — para el newsletter
+# Resend — for newsletter emails
 RESEND_API_KEY=""
 
-# URL pública del sitio
+# Upstash Redis — for rate limiting
+UPSTASH_REDIS_REST_URL=""
+UPSTASH_REDIS_REST_TOKEN=""
+
+# Public site URL
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 NEXT_PUBLIC_SITE_URL="http://localhost:3000"
 ```
 
-> **Importante:** `.env.local` está en `.gitignore` y nunca debe subirse al repositorio.
+> **Important:** `.env.local` is in `.gitignore` and must never be committed to the repository.
 
 ---
 
-## Scripts disponibles
+## Available Scripts
 
 ```bash
-npm run dev          # Servidor de desarrollo en localhost:3000
-npm run build        # Build de producción
-npm run start        # Iniciar servidor en producción
-npm run lint         # Linter ESLint
+npm run dev          # Development server at localhost:3000
+npm run build        # Production build
+npm run start        # Start production server
+npm run lint         # ESLint
 
-npm run db:migrate   # Ejecutar migraciones de Prisma
-npm run db:push      # Sincronizar schema sin generar migración
-npm run db:seed      # Poblar base de datos con datos iniciales
-npm run db:studio    # Abrir Prisma Studio (GUI de base de datos)
-npm run db:generate  # Regenerar Prisma Client
+npm run db:migrate   # Run Prisma migrations
+npm run db:push      # Sync schema without generating a migration
+npm run db:seed      # Seed database with sample data
+npm run db:studio    # Open Prisma Studio (database GUI)
+npm run db:generate  # Regenerate Prisma Client
 ```
 
 ---
 
-## Flujo editorial
+## Editorial Workflow
 
 ```
 DRAFT → REVIEW → PUBLISHED → ARCHIVED
   ↑         |
-  └─────────┘ (devolver a borrador)
+  └─────────┘ (return to draft)
 ```
 
-1. El **Editor** crea un artículo en borrador y lo envía a revisión
-2. El **Admin** recibe una notificación y puede publicar, devolver a borrador o archivar
-3. El **Editor** recibe una notificación con el resultado
+1. The **Editor** creates an article as a draft and submits it for review
+2. The **Admin** receives a notification and can publish, return to draft, or archive it
+3. The **Editor** receives a notification with the result
 
 ---
 
-## Roles de usuario
+## User Roles
 
-| Rol | Permisos |
+| Role | Permissions |
 |---|---|
-| **ADMIN** | Acceso total: publicar artículos, gestionar autores, categorías y suscriptores |
-| **EDITOR** | Crear y editar sus propios artículos, enviar a revisión |
-| **MEMBER** | Leer artículos publicados, comentar, suscribirse al newsletter |
+| **ADMIN** | Full access: publish articles, manage authors, categories, and subscribers |
+| **EDITOR** | Create and edit their own articles, submit for review |
+| **MEMBER** | Read published articles, comment, subscribe to the newsletter |
 
 ---
 
-## Deploy en Vercel
+## Deploy to Vercel
 
-### 1. Preparar el repositorio
-
-Asegúrate de que el build local funcione sin errores:
+### 1. Verify the build
 
 ```bash
 npm run build
 ```
 
-### 2. Conectar con Vercel
+### 2. Connect to Vercel
 
-1. Ve a [vercel.com](https://vercel.com) e inicia sesión
-2. Haz clic en **Add New Project** e importa tu repositorio de GitHub
-3. Vercel detectará automáticamente que es un proyecto Next.js
+1. Go to [vercel.com](https://vercel.com) and sign in
+2. Click **Add New Project** and import your GitHub repository
+3. Vercel will automatically detect it as a Next.js project
 
-### 3. Configurar variables de entorno
+### 3. Configure environment variables
 
-En **Settings → Environment Variables**, agrega todas las variables de `.env.example` con sus valores de producción:
+In **Settings → Environment Variables**, add all variables from `.env.example` with production values:
 
-| Variable | Valor en producción |
+| Variable | Production Value |
 |---|---|
-| `DATABASE_URL` | Tu URL de Neon con `pgbouncer=true` |
-| `DIRECT_URL` | Tu URL directa de Neon |
-| `NEXTAUTH_URL` | `https://tu-app.vercel.app` |
-| `NEXTAUTH_SECRET` | Genera con `openssl rand -hex 32` |
-| `GOOGLE_CLIENT_ID` | Tu Client ID de Google |
-| `GOOGLE_CLIENT_SECRET` | Tu Client Secret de Google |
-| `RESEND_API_KEY` | Tu API Key de Resend |
-| `NEXT_PUBLIC_BASE_URL` | `https://tu-app.vercel.app` |
-| `NEXT_PUBLIC_SITE_URL` | `https://tu-app.vercel.app` |
+| `DATABASE_URL` | Your Neon URL with `pgbouncer=true` |
+| `DIRECT_URL` | Your Neon direct URL |
+| `NEXTAUTH_URL` | `https://your-app.vercel.app` |
+| `NEXTAUTH_SECRET` | Generate with `openssl rand -hex 32` |
+| `GOOGLE_CLIENT_ID` | Your Google Client ID |
+| `GOOGLE_CLIENT_SECRET` | Your Google Client Secret |
+| `RESEND_API_KEY` | Your Resend API Key |
+| `UPSTASH_REDIS_REST_URL` | Your Upstash Redis REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Your Upstash Redis REST Token |
+| `NEXT_PUBLIC_BASE_URL` | `https://your-app.vercel.app` |
+| `NEXT_PUBLIC_SITE_URL` | `https://your-app.vercel.app` |
 
-### 4. Configurar Google OAuth para producción
+### 4. Configure Google OAuth for production
 
-En [Google Cloud Console](https://console.cloud.google.com):
-1. Ve a **APIs & Services → Credentials**
-2. Edita tu OAuth 2.0 Client
-3. Agrega en **Authorized redirect URIs**: `https://tu-app.vercel.app/api/auth/callback/google`
+In [Google Cloud Console](https://console.cloud.google.com):
+1. Go to **APIs & Services → Credentials**
+2. Edit your OAuth 2.0 Client
+3. Add to **Authorized redirect URIs**: `https://your-app.vercel.app/api/auth/callback/google`
 
-### 5. Desplegar
+### 5. Deploy
 
-Haz click en **Deploy**. Vercel desplegará automáticamente en cada push a `main`.
+Click **Deploy**. Vercel will automatically redeploy on every push to `main`.
 
-> **Nota:** No necesitas ejecutar `db:migrate` en Vercel — las migraciones deben ejecutarse desde tu máquina local apuntando a la base de datos de producción.
+> **Note:** Run migrations from your local machine pointing to the production database — not from Vercel.
 
 ---
 
-## Licencia
+## License
 
-MIT — libre para uso personal y comercial.
+MIT — free for personal and commercial use.
